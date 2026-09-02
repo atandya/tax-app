@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: coretax-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: coretax
+      POSTGRES_PASSWORD: coretax_dev_pw
+      POSTGRES_DB: coretax
+    ports:
+      - "5433:5432"
+    volumes:
+      - coretax_pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coretax -d coretax"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  coretax_pgdata:
