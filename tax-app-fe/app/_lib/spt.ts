@@ -1,4 +1,5 @@
 // Shared SPT types + presentation helpers (client-safe: no server imports).
+import type { FilingProfile } from "./filing-profile";
 
 export type SptStatus = "DRAFT" | "WAITING_PAYMENT" | "REPORTED" | "REJECTED";
 
@@ -106,6 +107,10 @@ export interface WithholdingSlip {
 export type YaTidak = "ya" | "tidak";
 
 export interface SptData {
+  /** Marital status and eligible dependant count confirmed by the taxpayer
+   *  (manually or through the assistant). Absent means `identity.ptkp` is a
+   *  provisional default/seed value, not a confirmed fact. */
+  filingProfile?: FilingProfile;
   identity?: { ptkp?: string; signer?: "wp" | "kuasa" };
   header?: {
     status?: string;
