@@ -3,20 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AuthShell, MiniCard } from "../_components/auth-shell";
 import {
-  ArrowUp,
-  Check,
-  Eye,
-  EyeOff,
-  IdCard,
-  InfoCircle,
-  Lock,
-  Mail,
-  User,
-  UserTick,
-} from "../_components/icons";
-import { Button } from "../_components/ui";
+  AuthShell,
+  MiniCard,
+  OrDivider,
+  PasswordToggleButton,
+} from "../_components/auth-shell";
+import { Alert } from "../_components/icons";
+import { Button, Choice, Field, Notice } from "../_components/ui";
 import type { Dict } from "../_lib/i18n";
 
 /** Mirrors the backend RegisterDto rules so errors surface before the POST. */
@@ -24,7 +18,13 @@ const USERNAME_RE = /^\d{15,16}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STRONG_PW_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
-type Field = "username" | "fullName" | "email" | "password" | "confirm" | "captcha";
+type FieldKey =
+  | "username"
+  | "fullName"
+  | "email"
+  | "password"
+  | "confirm"
+  | "captcha";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function RegisterPage() {
   const [capsOn, setCapsOn] = useState(false);
   const [captcha, setCaptcha] = useState(false);
 
-  const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
+  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -47,9 +47,9 @@ export default function RegisterPage() {
     setCapsOn(e.getModifierState?.("CapsLock") ?? false);
   }
 
-  /** Field -> error message key, or null when the field is acceptable. */
-  function validate(t: Dict): Partial<Record<Field, string>> {
-    const errs: Partial<Record<Field, string>> = {};
+  /** Field -> error message, or absent when the field is acceptable. */
+  function validate(t: Dict): Partial<Record<FieldKey, string>> {
+    const errs: Partial<Record<FieldKey, string>> = {};
     if (!USERNAME_RE.test(username.trim())) errs.username = t.errUseridFormat;
     if (fullName.trim().length < 3) errs.fullName = t.errFullNameRequired;
     if (!email.trim()) errs.email = t.errEmailRequired;
@@ -60,358 +60,227 @@ export default function RegisterPage() {
     return errs;
   }
 
-  async function onSubmit(e: React.FormEvent, t: Dict) {
-    e.preventDefault();
-    setTouched({
-      username: true,
-      fullName: true,
-      email: true,
-      password: true,
-      confirm: true,
-      captcha: true,
-    });
-    setError(null);
-    if (Object.keys(validate(t)).length > 0) return;
-
-    setLoading(true);
-    try {
-      const res = await fetch("/api/be/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          username: username.trim(),
-          fullName: fullName.trim(),
-          email: email.trim(),
-          npwp: npwp.trim() || undefined,
-          password,
-          captcha,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        // Nest returns `message` as a string or an array of validation errors.
-        const msg = Array.isArray(data?.message) ? data.message[0] : data?.message;
-        setError(msg ?? t.registerFailed);
-        setLoading(false);
-        return;
-      }
-      // The backend signs the new taxpayer in, so go straight to their returns.
-      router.push("/spt");
-      router.refresh();
-    } catch {
-      setError("Tidak dapat terhubung ke server. Coba lagi.");
-      setLoading(false);
-    }
-  }
-
-  const inputBase =
-    "control border bg-white text-[var(--text-main)] focus:ring-2 focus:ring-djp-blue/15";
-
   return (
     <AuthShell>
       {(t) => {
         const errs = validate(t);
-        const show = (f: Field) => (touched[f] ? errs[f] : undefined);
+        const show = (f: FieldKey) => (touched[f] ? errs[f] : undefined);
+
+        async function onSubmit(e: React.FormEvent) {
+          e.preventDefault();
+          setTouched({
+            username: true,
+            fullName: true,
+            email: true,
+            password: true,
+            confirm: true,
+            captcha: true,
+          });
+          setError(null);
+          if (Object.keys(errs).length > 0) return;
+
+          setLoading(true);
+          try {
+            const res = await fetch("/api/be/auth/register", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: JSON.stringify({
+                username: username.trim(),
+                fullName: fullName.trim(),
+                email: email.trim(),
+                npwp: npwp.trim() || undefined,
+                password,
+                captcha,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              // Nest returns `message` as a string or an array of errors.
+              const msg = Array.isArray(data?.message) ? data.message[0] : data?.message;
+              setError(msg ?? t.registerFailed);
+              setLoading(false);
+              return;
+            }
+            // The backend signs the new taxpayer in, so go straight to
+            // their returns.
+            router.push("/spt");
+            router.refresh();
+          } catch {
+            setError(t.errNetwork);
+            setLoading(false);
+          }
+        }
 
         return (
-          <section className="w-full max-w-md">
-            <div className="rounded-2xl border border-djp-blue/10 bg-white p-6 shadow-sm sm:p-9">
-              <h1 className="font-heading text-2xl font-extrabold text-djp-blue">
-                {t.registerWelcome}
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--text-soft)]">
-                {t.registerSubtitle}
-              </p>
+          <>
+            <h1 className="type-headline-md text-on-neutral">{t.registerWelcome}</h1>
+            <p className="helper mt-sm">{t.registerSubtitle}</p>
 
-              {error && (
-                <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm leading-relaxed text-rose-700">
-                  <InfoCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
+            {error && (
+              <div className="mt-lg">
+                <Notice kind="error">{error}</Notice>
+              </div>
+            )}
 
-              <form
-                onSubmit={(e) => onSubmit(e, t)}
-                noValidate
-                className="mt-7 flex flex-col gap-5"
+            <form onSubmit={onSubmit} noValidate className="mt-lg flex flex-col gap-md">
+              <Field
+                id="username"
+                label={t.useridLabel}
+                helper={t.useridHint}
+                error={show("username")}
               >
-                <Field
+                <input
                   id="username"
-                  label={t.useridLabel}
-                  Icon={User}
-                  value={username}
-                  onChange={setUsername}
-                  onBlur={() => setTouched((s) => ({ ...s, username: true }))}
-                  placeholder={t.useridPlaceholder}
+                  type="text"
                   autoComplete="username"
                   inputMode="numeric"
-                  hint={t.useridHint}
-                  error={show("username")}
-                  className={inputBase}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  onBlur={() => setTouched((s) => ({ ...s, username: true }))}
+                  placeholder={t.useridPlaceholder}
+                  aria-invalid={Boolean(show("username"))}
+                  className={`control ${show("username") ? "is-error" : ""}`}
                 />
+              </Field>
 
-                <Field
+              <Field id="fullName" label={t.fullNameLabel} error={show("fullName")}>
+                <input
                   id="fullName"
-                  label={t.fullNameLabel}
-                  Icon={UserTick}
+                  type="text"
+                  autoComplete="name"
                   value={fullName}
-                  onChange={setFullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   onBlur={() => setTouched((s) => ({ ...s, fullName: true }))}
                   placeholder={t.fullNamePlaceholder}
-                  autoComplete="name"
-                  error={show("fullName")}
-                  className={inputBase}
+                  aria-invalid={Boolean(show("fullName"))}
+                  className={`control ${show("fullName") ? "is-error" : ""}`}
                 />
+              </Field>
 
-                <Field
+              <Field id="email" label={t.emailLabel} error={show("email")}>
+                <input
                   id="email"
-                  label={t.emailLabel}
-                  Icon={Mail}
                   type="email"
+                  autoComplete="email"
                   value={email}
-                  onChange={setEmail}
+                  onChange={(e) => setEmail(e.target.value)}
                   onBlur={() => setTouched((s) => ({ ...s, email: true }))}
                   placeholder={t.emailPlaceholder}
-                  autoComplete="email"
-                  error={show("email")}
-                  className={inputBase}
+                  aria-invalid={Boolean(show("email"))}
+                  className={`control ${show("email") ? "is-error" : ""}`}
                 />
+              </Field>
 
-                <Field
+              <Field id="npwp" label={t.npwpLabel} optional={t.npwpOptional}>
+                <input
                   id="npwp"
-                  label={t.npwpLabel}
-                  optionalLabel={t.npwpOptional}
-                  Icon={IdCard}
+                  type="text"
                   value={npwp}
-                  onChange={setNpwp}
+                  onChange={(e) => setNpwp(e.target.value)}
                   placeholder={t.npwpPlaceholder}
-                  className={inputBase}
+                  className="control"
                 />
+              </Field>
 
-                {/* Password */}
-                <div>
-                  <label htmlFor="password" className="mb-1.5 block text-sm font-bold text-djp-blue">
-                    {t.passwordLabel}
-                  </label>
-                  <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-muted)]" />
-                    <input
-                      id="password"
-                      type={showPw ? "text" : "password"}
-                      autoComplete="new-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyUp={onPwKey}
-                      onKeyDown={onPwKey}
-                      onBlur={() => {
-                        setTouched((s) => ({ ...s, password: true }));
-                        setCapsOn(false);
-                      }}
-                      placeholder={t.passwordPlaceholder}
-                      className={`${inputBase} pl-11 pr-12 ${
-                        show("password") ? "border-rose-300" : "border-djp-blue/20"
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw((v) => !v)}
-                      aria-label="Toggle password visibility"
-                      className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[var(--text-muted)] transition hover:bg-djp-blue/5 hover:text-djp-blue"
-                    >
-                      {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
-                  {capsOn && (
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#9a6b00]">
-                      <ArrowUp className="h-3.5 w-3.5" />
-                      {t.capsWarning}
-                    </p>
-                  )}
-                  {show("password") ? (
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600">
-                      <InfoCircle className="h-3.5 w-3.5" />
-                      {show("password")}
-                    </p>
-                  ) : (
-                    <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t.passwordHint}</p>
-                  )}
-                </div>
-
-                {/* Confirm password */}
-                <div>
-                  <label htmlFor="confirm" className="mb-1.5 block text-sm font-bold text-djp-blue">
-                    {t.confirmPasswordLabel}
-                  </label>
-                  <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-muted)]" />
-                    <input
-                      id="confirm"
-                      type={showPw ? "text" : "password"}
-                      autoComplete="new-password"
-                      value={confirm}
-                      onChange={(e) => setConfirm(e.target.value)}
-                      onBlur={() => setTouched((s) => ({ ...s, confirm: true }))}
-                      placeholder={t.confirmPasswordPlaceholder}
-                      className={`${inputBase} pl-11 pr-4 ${
-                        show("confirm") ? "border-rose-300" : "border-djp-blue/20"
-                      }`}
-                    />
-                  </div>
-                  {show("confirm") && (
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600">
-                      <InfoCircle className="h-3.5 w-3.5" />
-                      {show("confirm")}
-                    </p>
-                  )}
-                </div>
-
-                {/* Captcha */}
-                <div>
-                  <label className="mb-1.5 block text-sm font-bold text-djp-blue">
-                    {t.captchaLabel}
-                  </label>
-                  <label
-                    className={`flex cursor-pointer items-center gap-3.5 rounded-lg border px-4 py-3.5 transition ${
-                      captcha
-                        ? "border-djp-blue bg-djp-blue/5"
-                        : show("captcha")
-                          ? "border-rose-300"
-                          : "border-djp-blue/20"
-                    }`}
-                  >
-                    <span
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border transition ${
-                        captcha ? "border-djp-blue bg-djp-blue text-white" : "border-djp-blue/30"
-                      }`}
-                    >
-                      {captcha && <Check className="h-4 w-4" />}
-                    </span>
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={captcha}
-                      onChange={(e) => {
-                        setCaptcha(e.target.checked);
-                        setTouched((s) => ({ ...s, captcha: true }));
-                      }}
-                    />
-                    <span className="text-sm font-medium text-[var(--text-soft)]">
-                      {t.captchaCheckbox}
-                    </span>
-                  </label>
-                  {show("captcha") && (
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600">
-                      <InfoCircle className="h-3.5 w-3.5" />
-                      {show("captcha")}
-                    </p>
-                  )}
-                </div>
-
-                <Button type="submit" size="lg" disabled={loading} className="w-full">
-                  {loading ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      {t.registerLoading}
-                    </>
-                  ) : (
-                    t.registerButton
-                  )}
-                </Button>
-
-                <div className="relative my-2 text-center">
-                  <span className="relative z-10 bg-white px-3 text-xs font-bold tracking-widest text-[var(--text-muted)]">
-                    {t.separator}
-                  </span>
-                  <span className="absolute left-0 top-1/2 h-px w-full bg-djp-blue/10" />
-                </div>
-
-                <MiniCard
-                  Icon={UserTick}
-                  title={t.haveAccountTitle}
-                  desc={t.haveAccountDesc}
-                  href="/login"
-                />
-              </form>
-            </div>
-
-            <div className="mt-6 text-center">
-              <Link
-                href="/login"
-                className="text-sm font-semibold text-[var(--text-muted)] transition hover:text-djp-blue"
+              <Field
+                id="password"
+                label={t.passwordLabel}
+                helper={t.passwordHint}
+                error={show("password")}
               >
-                ← {t.backLogin}
-              </Link>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPw ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyUp={onPwKey}
+                    onKeyDown={onPwKey}
+                    onBlur={() => {
+                      setTouched((s) => ({ ...s, password: true }));
+                      setCapsOn(false);
+                    }}
+                    placeholder={t.passwordPlaceholder}
+                    aria-invalid={Boolean(show("password"))}
+                    className={`control pr-2xl ${show("password") ? "is-error" : ""}`}
+                  />
+                  <PasswordToggleButton
+                    shown={showPw}
+                    onToggle={() => setShowPw((v) => !v)}
+                    label={showPw ? t.hidePassword : t.showPassword}
+                  />
+                </div>
+                {capsOn && (
+                  <p className="helper flex items-center gap-xs">
+                    <Alert className="h-4 w-4 shrink-0" />
+                    {t.capsWarning}
+                  </p>
+                )}
+              </Field>
+
+              <Field id="confirm" label={t.confirmPasswordLabel} error={show("confirm")}>
+                <input
+                  id="confirm"
+                  type={showPw ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  onBlur={() => setTouched((s) => ({ ...s, confirm: true }))}
+                  placeholder={t.confirmPasswordPlaceholder}
+                  aria-invalid={Boolean(show("confirm"))}
+                  className={`control ${show("confirm") ? "is-error" : ""}`}
+                />
+              </Field>
+
+              <div className="flex flex-col gap-sm">
+                <span className="type-label-md text-on-neutral">{t.captchaLabel}</span>
+                <div
+                  className={`rounded-sm border px-md py-md ${
+                    captcha
+                      ? "border-primary bg-tertiary"
+                      : show("captcha")
+                        ? "border-error"
+                        : "border-border"
+                  }`}
+                >
+                  <Choice
+                    kind="checkbox"
+                    label={t.captchaCheckbox}
+                    checked={captcha}
+                    onChange={() => {
+                      setCaptcha((v) => !v);
+                      setTouched((s) => ({ ...s, captcha: true }));
+                    }}
+                  />
+                </div>
+                {show("captcha") && (
+                  <p className="helper helper-error">{show("captcha")}</p>
+                )}
+              </div>
+
+              <Button type="submit" size="lg" disabled={loading} className="btn-block mt-sm">
+                {loading ? t.registerLoading : t.registerButton}
+              </Button>
+            </form>
+
+            <div className="mt-lg">
+              <OrDivider label={t.separator} />
             </div>
-          </section>
+
+            <div className="mt-lg">
+              <MiniCard title={t.haveAccountTitle} desc={t.haveAccountDesc} href="/login" />
+            </div>
+
+            <p className="mt-lg text-center">
+              <Link href="/login" className="type-body-sm text-muted hover:text-primary">
+                {t.backLogin}
+              </Link>
+            </p>
+          </>
         );
       }}
     </AuthShell>
-  );
-}
-
-/** Labelled text input with a leading icon, matching the login card fields. */
-function Field({
-  id,
-  label,
-  optionalLabel,
-  Icon,
-  value,
-  onChange,
-  onBlur,
-  placeholder,
-  type = "text",
-  autoComplete,
-  inputMode,
-  hint,
-  error,
-  className,
-}: {
-  id: string;
-  label: string;
-  optionalLabel?: string;
-  Icon: (p: { className?: string }) => React.JSX.Element;
-  value: string;
-  onChange: (v: string) => void;
-  onBlur?: () => void;
-  placeholder?: string;
-  type?: string;
-  autoComplete?: string;
-  inputMode?: "numeric";
-  hint?: string;
-  error?: string;
-  className: string;
-}) {
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-bold text-djp-blue">
-        {label}
-        {optionalLabel && (
-          <span className="ml-1.5 font-medium text-[var(--text-muted)]">({optionalLabel})</span>
-        )}
-      </label>
-      <div className="relative">
-        <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-muted)]" />
-        <input
-          id={id}
-          type={type}
-          value={value}
-          autoComplete={autoComplete}
-          inputMode={inputMode}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          placeholder={placeholder}
-          className={`${className} pl-11 pr-4 ${error ? "border-rose-300" : "border-djp-blue/20"}`}
-        />
-      </div>
-      {error ? (
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600">
-          <InfoCircle className="h-3.5 w-3.5" />
-          {error}
-        </p>
-      ) : (
-        hint && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{hint}</p>
-      )}
-    </div>
   );
 }

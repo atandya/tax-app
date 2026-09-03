@@ -1,182 +1,111 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { Brand } from "./_components/brand";
-import {
-  ArrowRight,
-  Chevron,
-  LinkOff,
-  Lock,
-  LockOpen,
-  Refresh,
-  ShieldCheck,
-  ShieldX,
-  UserX,
-  Wifi,
-} from "./_components/icons";
+import { Check, DocCheck, IdCard, Refresh, User, Wifi } from "./_components/icons";
+import { LangToggle, useLang } from "./_components/lang";
 import { LinkButton } from "./_components/ui";
-import { translations, type Lang } from "./_lib/i18n";
 
 export default function LandingPage() {
-  const [lang, setLang] = useState<Lang>("id");
-  const [langOpen, setLangOpen] = useState(false);
-  const t = translations[lang];
-  const langWrapRef = useRef<HTMLDivElement>(null);
+  const { t } = useLang();
 
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (langWrapRef.current && !langWrapRef.current.contains(e.target as Node)) {
-        setLangOpen(false);
-      }
-    }
-    document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
-  }, []);
-
-  const safeItems = [
-    { Icon: Lock, title: t.safe1Title, desc: t.safe1Desc },
+  const easy = [
+    { Icon: Check, title: t.safe1Title, desc: t.safe1Desc },
     { Icon: Refresh, title: t.safe2Title, desc: t.safe2Desc },
     { Icon: Wifi, title: t.safe3Title, desc: t.safe3Desc },
   ];
-  const dangerItems = [
-    { Icon: UserX, title: t.danger1Title, desc: t.danger1Desc },
-    { Icon: LinkOff, title: t.danger2Title, desc: t.danger2Desc },
-    { Icon: LockOpen, title: t.danger3Title, desc: t.danger3Desc },
+  const prepare = [
+    { Icon: DocCheck, title: t.danger1Title, desc: t.danger1Desc },
+    { Icon: IdCard, title: t.danger2Title, desc: t.danger2Desc },
+    { Icon: User, title: t.danger3Title, desc: t.danger3Desc },
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-white via-zinc-50 to-djp-blue/5">
-      {/* Nav */}
-      <header className="sticky top-0 z-40 border-b border-djp-blue/10 bg-white/85 backdrop-blur">
-        <div className="app-container flex h-16 items-center justify-between gap-4">
-          <Brand subtitle={t.brandSub} />
-
-          <div ref={langWrapRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setLangOpen((v) => !v)}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-djp-blue/15 bg-white pl-3 pr-3.5 text-sm font-bold text-djp-blue transition hover:bg-djp-blue/5"
-            >
-              <span>{lang === "id" ? "🇮🇩" : "🇺🇸"}</span>
-              {lang.toUpperCase()}
-              <Chevron className={`h-4 w-4 transition ${langOpen ? "rotate-180" : ""}`} />
-            </button>
-            {langOpen && (
-              <div className="absolute right-0 top-[calc(100%+8px)] w-48 rounded-xl border border-djp-blue/10 bg-white p-2 shadow-lg">
-                {(["id", "en"] as Lang[]).map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => {
-                      setLang(code);
-                      setLangOpen(false);
-                    }}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-djp-blue/5 ${
-                      lang === code ? "bg-djp-blue/5 font-bold text-djp-blue" : "text-[var(--text-soft)]"
-                    }`}
-                  >
-                    <span>{code === "id" ? "🇮🇩" : "🇺🇸"}</span>
-                    {code === "id" ? "Indonesia" : "English"}
-                  </button>
-                ))}
-              </div>
-            )}
+    <div className="flex min-h-[calc(100vh-var(--disclaimer-h))] flex-col bg-neutral">
+      <header className="sticky top-[var(--disclaimer-h)] z-40 border-b border-border bg-neutral">
+        <div className="shell flex h-[var(--nav-h)] items-center justify-between gap-md">
+          <Brand />
+          <div className="flex items-center gap-md">
+            <LangToggle />
+            <LinkButton href="/login" size="sm">
+              {t.loginButton}
+            </LinkButton>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <main className="app-container flex-1 py-14 sm:py-20">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
-          <div className="min-w-0 max-w-xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-djp-gold/30 bg-djp-gold/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-[#9a6b00]">
-              {t.heroBadge}
-            </span>
-            <h1 className="mt-6 font-heading text-3xl font-extrabold leading-tight tracking-tight text-djp-blue sm:text-4xl md:text-5xl">
-              {t.heroHeadline}
-            </h1>
-            <p className="mt-5 text-base leading-relaxed text-[var(--text-soft)] sm:text-lg">
-              {t.heroSubtitle}
-            </p>
-            <div className="mt-9 flex flex-col items-start gap-4">
-              <LinkButton href="/login" size="lg">
-                {t.cta}
-                <ArrowRight className="h-5 w-5" />
-              </LinkButton>
-              <p className="text-sm text-[var(--text-muted)]">{t.ctaNote}</p>
+      <main className="flex-1">
+        {/* Hero — a branding surface, so hero-scale spacing and display type. */}
+        <section className="shell py-2xl">
+          <div className="grid items-start gap-2xl lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+            <div className="min-w-0">
+              <span className="type-label-sm inline-flex items-center rounded-full border border-border bg-tertiary px-md py-xs text-primary">
+                {t.heroBadge}
+              </span>
+              <h1 className="type-display mt-lg max-w-[16ch] text-on-neutral">
+                {t.heroHeadline}
+              </h1>
+              <p className="type-body-lg measure mt-lg text-on-surface">
+                {t.heroSubtitle}
+              </p>
+              <div className="mt-xl flex flex-wrap items-center gap-md">
+                <LinkButton href="/login" size="lg">
+                  {t.cta}
+                </LinkButton>
+                <LinkButton href="/register" variant="secondary" size="lg">
+                  {t.ctaSecondary}
+                </LinkButton>
+              </div>
+              <p className="helper mt-md">{t.ctaNote}</p>
+            </div>
+
+            <div className="grid min-w-0 gap-lg">
+              <InfoCard title={t.safeTitle} desc={t.safeDesc} items={easy} />
+              <InfoCard title={t.dangerTitle} desc={t.dangerDesc} items={prepare} />
             </div>
           </div>
-
-          {/* Info cards */}
-          <div className="grid min-w-0 gap-5">
-            <InfoCard
-              variant="safe"
-              Icon={ShieldCheck}
-              title={t.safeTitle}
-              desc={t.safeDesc}
-              items={safeItems}
-            />
-            <InfoCard
-              variant="danger"
-              Icon={ShieldX}
-              title={t.dangerTitle}
-              desc={t.dangerDesc}
-              items={dangerItems}
-            />
-          </div>
-        </div>
+        </section>
       </main>
 
-      <footer className="border-t border-djp-blue/10 bg-white/60 py-7">
-        <p className="app-container text-center text-[13px] font-medium leading-relaxed text-[var(--text-muted)]">
-          {t.footer}
-        </p>
+      <footer className="border-t border-border bg-surface py-lg">
+        <p className="shell type-label-sm text-center text-muted">{t.footer}</p>
       </footer>
     </div>
   );
 }
 
+/**
+ * Content card: 1px border, moderate rounding, no shadow. Icons sit inline
+ * at text size beside their label rather than in a tinted tile.
+ */
 function InfoCard({
-  variant,
-  Icon,
   title,
   desc,
   items,
 }: {
-  variant: "safe" | "danger";
-  Icon: (p: { className?: string }) => React.JSX.Element;
   title: string;
   desc: string;
-  items: { Icon: (p: { className?: string }) => React.JSX.Element; title: string; desc: string }[];
+  items: {
+    Icon: (p: { className?: string }) => React.JSX.Element;
+    title: string;
+    desc: string;
+  }[];
 }) {
-  const accent =
-    variant === "safe"
-      ? { bg: "bg-emerald-50", text: "text-emerald-600", ring: "border-emerald-100" }
-      : { bg: "bg-rose-50", text: "text-rose-600", ring: "border-rose-100" };
   return (
-    <div className={`rounded-2xl border ${accent.ring} bg-white p-6 shadow-sm sm:p-7`}>
-      <div className="mb-5 flex items-center gap-4 border-b border-zinc-100 pb-5">
-        <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${accent.bg} ${accent.text}`}>
-          <Icon className="h-6 w-6" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-heading text-lg font-extrabold text-djp-blue">{title}</h3>
-          <p className="mt-0.5 text-sm leading-relaxed text-[var(--text-muted)]">{desc}</p>
-        </div>
-      </div>
-      <ul className="flex flex-col gap-4">
-        {items.map(({ Icon: ItemIcon, title: it, desc: id }) => (
-          <li key={it} className="flex gap-3.5">
-            <ItemIcon className={`mt-0.5 h-5 w-5 shrink-0 ${accent.text}`} />
+    <section className="card">
+      <h2 className="type-headline-sm text-on-neutral">{title}</h2>
+      <p className="helper mt-xs">{desc}</p>
+      <hr className="divider my-md" />
+      <ul className="flex flex-col gap-md">
+        {items.map(({ Icon, title: itemTitle, desc: itemDesc }) => (
+          <li key={itemTitle} className="flex gap-sm">
+            <Icon className="mt-[3px] h-4 w-4 shrink-0 text-primary" />
             <div className="min-w-0">
-              <strong className="block text-sm font-bold text-[var(--text-main)]">{it}</strong>
-              <span className="mt-0.5 block text-sm leading-relaxed text-[var(--text-soft)]">
-                {id}
-              </span>
+              <p className="type-label-md text-on-neutral">{itemTitle}</p>
+              <p className="type-body-sm mt-xs text-muted">{itemDesc}</p>
             </div>
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }

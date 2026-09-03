@@ -1,22 +1,56 @@
-import { DocCheck } from "./icons";
+import Image from "next/image";
+import Link from "next/link";
+import logo from "../../public/logo.png";
 
-export function Brand({ subtitle }: { subtitle?: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="relative grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-[var(--djp-blue)] to-[var(--djp-blue-2)] text-white shadow-lg shadow-djp-blue/30">
-        <DocCheck className="h-6 w-6" />
-        <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-djp-gold" />
-      </div>
-      <div className="leading-tight">
-        <div className="font-heading text-lg font-extrabold tracking-tight text-djp-blue">
-          Coretax<span className="text-djp-gold">DJP</span>
-        </div>
-        {subtitle ? (
-          <div className="text-[11px] font-medium text-[var(--text-muted)]">
-            {subtitle}
-          </div>
-        ) : null}
-      </div>
-    </div>
+/**
+ * The EasyTax wordmark. On dark green surfaces the artwork's near-black
+ * "Easy" would disappear, so there it is knocked out to solid white —
+ * `brightness-0 invert` flattens the two-tone mark to one colour.
+ */
+export function Brand({
+  tone = "light",
+  size = "md",
+  href,
+  subtitle,
+}: {
+  tone?: "light" | "dark";
+  size?: "md" | "lg";
+  href?: string;
+  subtitle?: string;
+}) {
+  const height = size === "lg" ? 40 : 28;
+  const mark = (
+    <Image
+      src={logo}
+      alt="EasyTax"
+      height={height}
+      width={Math.round((height * 843) / 179)}
+      priority
+      className={tone === "dark" ? "brightness-0 invert" : ""}
+    />
   );
+
+  const content = subtitle ? (
+    <span className="flex flex-col gap-xs">
+      {mark}
+      <span
+        className={`type-label-sm ${
+          tone === "dark" ? "text-white/70" : "text-muted"
+        }`}
+      >
+        {subtitle}
+      </span>
+    </span>
+  ) : (
+    mark
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className="inline-flex rounded-sm" aria-label="EasyTax">
+        {content}
+      </Link>
+    );
+  }
+  return <span className="inline-flex">{content}</span>;
 }

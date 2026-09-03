@@ -9,7 +9,6 @@ import {
   formatDate,
   isSupportedTaxYear,
   rupiah,
-  STATUS_META,
   STATUS_ORDER,
   SUPPORTED_FORM_TYPE,
   SUPPORTED_TAX_YEARS,
@@ -18,8 +17,9 @@ import {
   type SupportedTaxYear,
 } from "../_lib/spt";
 import { postSptDraft } from "../_lib/spt-api";
-import { ArrowRight, DocCheck } from "../_components/icons";
-import { Button, LinkButton } from "../_components/ui";
+import { useLang } from "../_components/lang";
+import { StatusBadge } from "../_components/status-badge";
+import { Button, LinkButton, Modal, Notice } from "../_components/ui";
 import { useDashboardTools } from "./use-dashboard-tools";
 
 export function SptDashboard({
@@ -30,11 +30,19 @@ export function SptDashboard({
   initialReturns: SptReturn[];
 }) {
   const router = useRouter();
+  const { t } = useLang();
   const [returns, setReturns] = useState<SptReturn[]>(initialReturns);
   const [tab, setTab] = useState<SptStatus | "ALL">("ALL");
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const statusLabel: Record<SptStatus, string> = {
+    DRAFT: t.statusDraft,
+    WAITING_PAYMENT: t.statusWaiting,
+    REPORTED: t.statusReported,
+    REJECTED: t.statusRejected,
+  };
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { ALL: returns.length };
@@ -65,88 +73,107 @@ export function SptDashboard({
       setReturns((prev) => [created, ...prev]);
       router.push(`/spt/${created.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Terjadi kesalahan.");
+      setError(e instanceof Error ? e.message : t.errGeneric);
       setCreating(false);
       setShowCreate(false);
     }
   }
 
   async function remove(id: string) {
-    if (!confirm("Hapus konsep SPT ini? Tindakan ini tidak dapat dibatalkan."))
-      return;
+    if (!confirm(t.confirmDelete)) return;
     const res = await fetch(`/api/be/spt/${id}`, {
       method: "DELETE",
       credentials: "same-origin",
     });
     if (res.ok) setReturns((prev) => prev.filter((r) => r.id !== id));
-    else setError("Gagal menghapus konsep.");
+    else setError(t.errDelete);
   }
 
+  const firstName = me.name.split(" ")[0];
+
   return (
-    <main className="app-container flex-1 py-10 sm:py-12">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
-        <div className="min-w-0">
-          <span className="inline-flex items-center gap-2 rounded-full border border-djp-gold/30 bg-djp-gold/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-[#9a6b00]">
-            Surat Pemberitahuan (SPT)
-          </span>
-          <h1 className="mt-4 font-heading text-2xl font-extrabold text-djp-blue sm:text-3xl">
-            SPT Tahunan Saya
-          </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--text-soft)] sm:text-base">
-            Halo {me.name.split(" ")[0]}, kelola dan laporkan SPT Tahunan PPh
-            Orang Pribadi Anda.
+    <>
+      {/* Main-menu header — the second and last dark green surface in the
+          product. It anchors the brand before the light form pages. */}
+      <section className="bg-secondary py-2xl text-on-secondary">
+        <div className="shell">
+          <p className="type-body-md text-white/70">
+            {t.menuGreeting}, {firstName}
+          </p>
+          <h1 className="type-headline-lg mt-xs">{t.menuHeadline}</h1>
+          <p className="type-body-md measure mt-md text-white/80">
+            {t.menuSubtitle}
           </p>
         </div>
-        <Button size="lg" onClick={() => setShowCreate(true)} className="shrink-0">
-          <DocCheck className="h-4 w-4" />
-          Buat SPT
-        </Button>
-      </div>
+      </section>
 
-      {error && (
-        <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm font-semibold leading-relaxed text-rose-700 sm:px-5">
-          {error}
-        </div>
-      )}
-
-      {/* Status tabs */}
-      <div className="mt-9 flex flex-wrap gap-2.5">
-        <TabButton
-          label="Semua"
-          count={counts.ALL}
-          active={tab === "ALL"}
-          onClick={() => setTab("ALL")}
-        />
-        {STATUS_ORDER.map((s) => (
-          <TabButton
-            key={s}
-            label={STATUS_META[s].label}
-            count={counts[s] ?? 0}
-            active={tab === s}
-            onClick={() => setTab(s)}
+      <main className="shell flex-1 py-xl">
+        {/* Service tiles. Everything beyond the annual return is out of scope
+            for the prototype but stays visible, so the broader service
+            context is legible without pretending it works. */}
+        <div className="grid gap-lg sm:grid-cols-2 lg:grid-cols-3">
+          <ServiceTile
+            title={t.serviceAnnualTitle}
+            desc={t.serviceAnnualDesc}
+            action={t.serviceAnnualAction}
+            onClick={() => setShowCreate(true)}
           />
-        ))}
-      </div>
+          {[
+            [t.servicePeriodicTitle, t.servicePeriodicDesc],
+            [t.serviceBillingTitle, t.serviceBillingDesc],
+            [t.serviceWithholdingTitle, t.serviceWithholdingDesc],
+            [t.serviceProfileTitle, t.serviceProfileDesc],
+          ].map(([title, desc]) => (
+            <ServiceTile key={title} title={title} desc={desc} disabled soon={t.serviceSoon} />
+          ))}
+        </div>
 
-      {/* List */}
-      <div className="mt-6 space-y-4">
-        {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-djp-blue/20 bg-white px-6 py-14 text-center sm:py-20">
-            <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-djp-blue/5 text-djp-blue">
-              <DocCheck className="h-7 w-7" />
-            </div>
-            <p className="text-sm text-[var(--text-muted)]">
-              {tab === "ALL"
-                ? "Belum ada SPT. Klik “Buat SPT” untuk memulai."
-                : "Tidak ada SPT pada status ini."}
-            </p>
+        <hr className="divider my-xl" />
+
+        <div className="flex flex-col gap-md sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="type-headline-md text-on-neutral">{t.returnsTitle}</h2>
+            <p className="helper mt-xs">{t.returnsSubtitle}</p>
           </div>
-        ) : (
-          filtered.map((r) => (
-            <SptCard key={r.id} r={r} onDelete={() => remove(r.id)} />
-          ))
+          <Button onClick={() => setShowCreate(true)}>{t.createReturn}</Button>
+        </div>
+
+        {error && (
+          <div className="mt-md">
+            <Notice kind="error">{error}</Notice>
+          </div>
         )}
-      </div>
+
+        <div className="mt-lg flex flex-wrap gap-sm">
+          <Tab
+            label={t.tabAll}
+            count={counts.ALL}
+            active={tab === "ALL"}
+            onClick={() => setTab("ALL")}
+          />
+          {STATUS_ORDER.map((s) => (
+            <Tab
+              key={s}
+              label={statusLabel[s]}
+              count={counts[s] ?? 0}
+              active={tab === s}
+              onClick={() => setTab(s)}
+            />
+          ))}
+        </div>
+
+        <div className="mt-lg flex flex-col gap-md">
+          {filtered.length === 0 ? (
+            <p className="rounded-md border border-border bg-surface px-lg py-xl text-center type-body-sm text-muted">
+              {tab === "ALL" ? t.emptyAll : t.emptyFiltered}
+            </p>
+          ) : (
+            filtered.map((r) => (
+              <ReturnRow key={r.id} r={r} onDelete={() => remove(r.id)} />
+            ))
+          )}
+        </div>
+      </main>
 
       {showCreate && (
         <CreateModal
@@ -155,11 +182,55 @@ export function SptDashboard({
           onCreate={createDraft}
         />
       )}
-    </main>
+    </>
   );
 }
 
-function TabButton({
+/**
+ * Service selection tile. Larger rounding than a content card, per the main
+ * menu spec; hover shifts the border to primary and tints the surface.
+ */
+function ServiceTile({
+  title,
+  desc,
+  action,
+  onClick,
+  disabled,
+  soon,
+}: {
+  title: string;
+  desc: string;
+  action?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  soon?: string;
+}) {
+  if (disabled) {
+    return (
+      <div
+        className="card card-tile pointer-events-none opacity-40"
+        aria-disabled="true"
+      >
+        <h3 className="type-headline-sm text-on-neutral">{title}</h3>
+        <p className="type-body-sm measure-narrow mt-sm text-muted">{desc}</p>
+        <p className="type-label-sm mt-md text-muted">{soon}</p>
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="card card-tile text-left transition hover:border-primary hover:bg-tertiary"
+    >
+      <h3 className="type-headline-sm text-on-neutral">{title}</h3>
+      <p className="type-body-sm measure-narrow mt-sm text-muted">{desc}</p>
+      <span className="type-label-md mt-md inline-block text-primary">{action}</span>
+    </button>
+  );
+}
+
+function Tab({
   label,
   count,
   active,
@@ -174,77 +245,55 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-10 items-center gap-2 rounded-lg border px-5 text-xs font-bold transition sm:text-sm ${
+      aria-pressed={active}
+      className={`type-label-md inline-flex h-9 items-center gap-sm rounded-full border px-md transition ${
         active
-          ? "border-djp-blue bg-djp-blue text-white"
-          : "border-djp-blue/15 bg-white text-djp-blue hover:bg-djp-blue/5"
+          ? "border-primary bg-primary text-on-primary"
+          : "border-border bg-neutral text-on-neutral hover:bg-tertiary"
       }`}
     >
       {label}
-      <span
-        className={`grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-xs font-bold tabular-nums ${
-          active ? "bg-white/25 text-white" : "bg-djp-blue/10 text-djp-blue"
-        }`}
-      >
-        {count}
-      </span>
+      <span className="tabular-nums opacity-70">{count}</span>
     </button>
   );
 }
 
-function SptCard({ r, onDelete }: { r: SptReturn; onDelete: () => void }) {
-  const meta = STATUS_META[r.status];
+function ReturnRow({ r, onDelete }: { r: SptReturn; onDelete: () => void }) {
+  const { t } = useLang();
   const isDraftLike = r.status === "DRAFT" || r.status === "REJECTED";
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-djp-blue/10 bg-white p-5 shadow-sm transition hover:border-djp-blue/25 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-6">
-      <div className="flex min-w-0 items-start gap-4">
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-djp-blue/5 text-djp-blue">
-          <DocCheck className="h-6 w-6" />
+    <article className="card flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-sm">
+          <h3 className="type-headline-sm text-on-neutral">
+            SPT {r.form_type}
+          </h3>
+          <span className="type-body-sm text-muted">
+            {t.taxYear} {r.tax_year}
+          </span>
+          <StatusBadge status={r.status} />
         </div>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-heading text-base font-extrabold text-djp-blue sm:text-lg">
-              SPT {r.form_type}
-            </span>
-            <span className="text-xs font-semibold text-[var(--text-muted)] sm:text-sm">
-              Tahun Pajak {r.tax_year}
-            </span>
-          </div>
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${meta.badge}`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-              {meta.label}
-            </span>
-            {r.payment_status && (
-              <span className="text-xs font-semibold text-[var(--text-muted)]">
-                {r.payment_status} · {rupiah(r.balance_due)}
-              </span>
-            )}
-          </div>
-          <div className="mt-2 text-xs text-[var(--text-muted)]">
-            Diperbarui {formatDate(r.updated_at)}
-          </div>
-          {r.status === "REJECTED" && r.rejection_reason && (
-            <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold leading-relaxed text-rose-700">
-              Ditolak: {r.rejection_reason}
-            </div>
-          )}
-        </div>
+        <p className="type-body-sm mt-sm text-muted">
+          {t.updatedAt} {formatDate(r.updated_at)}
+          {r.payment_status ? ` · ${r.payment_status} ${rupiah(r.balance_due)}` : ""}
+        </p>
+        {r.status === "REJECTED" && r.rejection_reason && (
+          <p className="type-body-sm mt-sm rounded-sm border border-error bg-error-tint px-md py-sm text-error">
+            {t.rejectedLabel}: {r.rejection_reason}
+          </p>
+        )}
       </div>
-      <div className="flex shrink-0 items-center gap-3 self-stretch sm:self-center">
+      <div className="flex shrink-0 flex-wrap items-center gap-sm">
         {r.status === "DRAFT" && (
-          <Button variant="danger-outline" size="sm" onClick={onDelete}>
-            Hapus
+          <Button variant="ghost" size="sm" onClick={onDelete}>
+            {t.deleteDraft}
           </Button>
         )}
-        <LinkButton href={`/spt/${r.id}`} size="md" className="flex-1 sm:flex-none">
-          {isDraftLike ? "Isi SPT" : "Lihat"}
-          <ArrowRight className="h-4 w-4" />
+        <LinkButton href={`/spt/${r.id}`} variant={isDraftLike ? "primary" : "secondary"}>
+          {isDraftLike ? t.fillReturn : t.viewReturn}
         </LinkButton>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -257,28 +306,25 @@ function CreateModal({
   onClose: () => void;
   onCreate: (taxYear: number, formType: string) => void;
 }) {
+  const { t } = useLang();
   const [year, setYear] = useState<SupportedTaxYear>(CURRENT_TAX_YEAR);
   const [formType, setFormType] = useState(SUPPORTED_FORM_TYPE);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
-        <h2 className="font-heading text-xl font-extrabold text-djp-blue">
-          Buat SPT Tahunan
-        </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-muted)]">
-          Pilih tahun pajak dan jenis formulir.
-        </p>
-
-        <label className="mt-7 block text-sm font-bold text-djp-blue">
-          Tahun Pajak
+    <Modal title={t.createModalTitle} subtitle={t.createModalSubtitle} onClose={onClose}>
+      <div className="flex flex-col gap-md">
+        <div className="flex flex-col gap-sm">
+          <label htmlFor="create-year" className="type-label-md text-on-neutral">
+            {t.taxYearLabel}
+          </label>
           <select
+            id="create-year"
             value={year}
             onChange={(e) => {
               const next = Number(e.target.value);
               if (isSupportedTaxYear(next)) setYear(next);
             }}
-            className="control mt-2 border border-djp-blue/20 bg-white font-semibold text-[var(--text-main)]"
+            className="control"
           >
             {SUPPORTED_TAX_YEARS.map((y) => (
               <option key={y} value={y}>
@@ -286,14 +332,17 @@ function CreateModal({
               </option>
             ))}
           </select>
-        </label>
+        </div>
 
-        <label className="mt-5 block text-sm font-bold text-djp-blue">
-          Jenis Formulir
+        <div className="flex flex-col gap-sm">
+          <label htmlFor="create-form" className="type-label-md text-on-neutral">
+            {t.formTypeLabel}
+          </label>
           <select
+            id="create-form"
             value={formType}
             onChange={(e) => setFormType(e.target.value)}
-            className="control mt-2 border border-djp-blue/20 bg-white font-semibold text-[var(--text-main)]"
+            className="control"
           >
             {FORM_TYPES.map((f) => (
               <option key={f} value={f}>
@@ -301,17 +350,17 @@ function CreateModal({
               </option>
             ))}
           </select>
-        </label>
-
-        <div className="mt-8 flex justify-end gap-3">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Batal
-          </Button>
-          <Button onClick={() => onCreate(year, formType)} disabled={busy}>
-            {busy ? "Membuat..." : "Buat & Isi"}
-          </Button>
         </div>
       </div>
-    </div>
+
+      <div className="mt-lg flex justify-end gap-sm">
+        <Button variant="ghost" onClick={onClose} disabled={busy}>
+          {t.cancel}
+        </Button>
+        <Button onClick={() => onCreate(year, formType)} disabled={busy}>
+          {busy ? t.creating : t.createAndFill}
+        </Button>
+      </div>
+    </Modal>
   );
 }

@@ -12,7 +12,7 @@ export default async function SptPage() {
   const returns = (await beGet<SptReturn[]>("/spt")) ?? [];
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--background)]">
+    <div className="flex min-h-[calc(100vh-var(--disclaimer-h))] flex-col bg-neutral">
       <AppHeader me={me} active="spt" />
       <SptDashboard me={me} initialReturns={returns} />
     </div>

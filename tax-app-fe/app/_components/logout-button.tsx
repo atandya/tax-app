@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useLang } from "./lang";
 import { Button } from "./ui";
 
 export function LogoutButton() {
   const router = useRouter();
+  const { t } = useLang();
   const [loading, setLoading] = useState(false);
 
   async function logout() {
@@ -19,8 +21,8 @@ export function LogoutButton() {
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={logout} disabled={loading}>
-      {loading ? "Keluar..." : "Keluar"}
+    <Button variant="secondary" size="sm" onClick={logout} disabled={loading}>
+      {loading ? t.signingOut : t.signOut}
     </Button>
   );
 }

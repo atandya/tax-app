@@ -17,7 +17,7 @@ export default async function SptDetailPage({
   if (!spt) notFound();
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--background)]">
+    <div className="flex min-h-[calc(100vh-var(--disclaimer-h))] flex-col bg-neutral">
       <AppHeader me={me} active={me.role === "admin" ? "admin" : "spt"} />
       <SptForm me={me} initial={spt} />
     </div>

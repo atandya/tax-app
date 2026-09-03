@@ -159,36 +159,6 @@ export interface SptReturn {
   taxpayer_username?: string;
 }
 
-export const STATUS_META: Record<
-  SptStatus,
-  { label: string; short: string; badge: string; dot: string }
-> = {
-  DRAFT: {
-    label: "Konsep SPT",
-    short: "Konsep",
-    badge: "bg-slate-100 text-slate-700 border-slate-200",
-    dot: "bg-slate-400",
-  },
-  WAITING_PAYMENT: {
-    label: "SPT Menunggu Pembayaran",
-    short: "Menunggu Pembayaran",
-    badge: "bg-amber-100 text-amber-800 border-amber-200",
-    dot: "bg-amber-500",
-  },
-  REPORTED: {
-    label: "SPT Dilaporkan",
-    short: "Dilaporkan",
-    badge: "bg-emerald-100 text-emerald-800 border-emerald-200",
-    dot: "bg-emerald-500",
-  },
-  REJECTED: {
-    label: "SPT Ditolak",
-    short: "Ditolak",
-    badge: "bg-rose-100 text-rose-700 border-rose-200",
-    dot: "bg-rose-500",
-  },
-};
-
 export const STATUS_ORDER: SptStatus[] = [
   "DRAFT",
   "WAITING_PAYMENT",

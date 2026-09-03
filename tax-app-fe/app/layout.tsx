@@ -1,32 +1,44 @@
 import type { Metadata } from "next";
-import { Montserrat, Plus_Jakarta_Sans } from "next/font/google";
+import { DM_Serif_Display, Inter } from "next/font/google";
 import "./globals.css";
+import { DisclaimerBar, LangProvider } from "./_components/lang";
 
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
+// Headlines only, 1.5rem and above — below that the serif detailing reads as
+// clutter rather than warmth.
+const dmSerif = DM_Serif_Display({
+  variable: "--font-dm-serif",
   subsets: ["latin"],
-  weight: ["700", "800"],
+  weight: ["400"],
+  display: "swap",
 });
 
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
+// Everything else: body, labels, inputs, buttons, navigation.
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Coretax DJP — Lapor SPT Tahunan",
+  title: "EasyTax — Lapor SPT Tahunan",
   description:
-    "Portal SPT Tahunan Sistem Inti Administrasi Perpajakan (Coretax) Direktorat Jenderal Pajak. Pastikan perangkat dan jaringan Anda aman sebelum masuk.",
+    "Prototipe edukasi pelaporan SPT Tahunan PPh Orang Pribadi. Menggunakan data sintetis, tidak berafiliasi dengan DJP.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="id"
-      className={`${montserrat.variable} ${jakarta.variable} h-full antialiased`}
+      className={`${dmSerif.variable} ${inter.variable} h-full`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* The disclaimer bar is fixed; the page starts below it. */}
+      <body className="min-h-full bg-neutral pt-[var(--disclaimer-h)]">
+        <LangProvider>
+          <DisclaimerBar />
+          {children}
+        </LangProvider>
+      </body>
     </html>
   );
 }

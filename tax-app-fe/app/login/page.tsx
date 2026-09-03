@@ -3,19 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AuthShell, MiniCard } from "../_components/auth-shell";
 import {
-  ArrowUp,
-  Check,
-  Eye,
-  EyeOff,
-  InfoCircle,
-  Lock,
-  User,
-  UserAdd,
-  UserTick,
-} from "../_components/icons";
-import { Button } from "../_components/ui";
+  AuthShell,
+  MiniCard,
+  OrDivider,
+  PasswordToggleButton,
+} from "../_components/auth-shell";
+import { Alert } from "../_components/icons";
+import { Button, Choice, Field, Notice } from "../_components/ui";
 import { useAuthTools } from "./use-auth-tools";
 
 export default function LoginPage() {
@@ -36,94 +31,83 @@ export default function LoginPage() {
     setCapsOn(e.getModifierState?.("CapsLock") ?? false);
   }
 
-  const uErr = touched.u && !username.trim();
-  const pErr = touched.p && !password.trim();
-  const cErr = touched.c && !captcha;
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setTouched({ u: true, p: true, c: true });
-    setError(null);
-    if (!username.trim() || !password.trim() || !captcha) return;
-
-    setLoading(true);
-    try {
-      const res = await fetch("/api/be/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ username: username.trim(), password, captcha }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data?.message ?? "ID Pengguna atau Kata Sandi salah.");
-        setLoading(false);
-        return;
-      }
-      router.push("/spt");
-      router.refresh();
-    } catch {
-      setError("Tidak dapat terhubung ke server. Coba lagi.");
-      setLoading(false);
-    }
-  }
-
-  const inputBase =
-    "control border bg-white text-[var(--text-main)] focus:ring-2 focus:ring-djp-blue/15";
+  const uErr = Boolean(touched.u && !username.trim());
+  const pErr = Boolean(touched.p && !password.trim());
+  const cErr = Boolean(touched.c && !captcha);
 
   return (
     <AuthShell>
-      {(t) => (
-        <section className="w-full max-w-md">
-          <div className="rounded-2xl border border-djp-blue/10 bg-white p-6 shadow-sm sm:p-9">
-            <h1 className="font-heading text-2xl font-extrabold text-djp-blue">
-              {t.loginWelcome}
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-[var(--text-soft)]">
-              {t.loginSubtitle}
-            </p>
+      {(t) => {
+        async function onSubmit(e: React.FormEvent) {
+          e.preventDefault();
+          setTouched({ u: true, p: true, c: true });
+          setError(null);
+          if (!username.trim() || !password.trim() || !captcha) return;
+
+          setLoading(true);
+          try {
+            const res = await fetch("/api/be/auth/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: JSON.stringify({
+                username: username.trim(),
+                password,
+                captcha,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data?.message ?? t.errLoginFailed);
+              setLoading(false);
+              return;
+            }
+            router.push("/spt");
+            router.refresh();
+          } catch {
+            setError(t.errNetwork);
+            setLoading(false);
+          }
+        }
+
+        return (
+          <>
+            <h1 className="type-headline-md text-on-neutral">{t.loginWelcome}</h1>
+            <p className="helper mt-sm">{t.loginSubtitle}</p>
 
             {error && (
-              <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm leading-relaxed text-rose-700">
-                <InfoCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
+              <div className="mt-lg">
+                <Notice kind="error">{error}</Notice>
               </div>
             )}
 
-            <form onSubmit={onSubmit} noValidate className="mt-7 flex flex-col gap-5">
-              {/* User ID */}
-              <div>
-                <label htmlFor="username" className="mb-1.5 block text-sm font-bold text-djp-blue">
-                  {t.useridLabel}
-                </label>
-                <div className="relative">
-                  <User className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-muted)]" />
-                  <input
-                    id="username"
-                    type="text"
-                    autoComplete="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    onBlur={() => setTouched((s) => ({ ...s, u: true }))}
-                    placeholder={t.useridPlaceholder}
-                    className={`${inputBase} pl-11 pr-4 ${uErr ? "border-rose-300" : "border-djp-blue/20"}`}
-                  />
-                </div>
-                {uErr && (
-                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600">
-                    <InfoCircle className="h-3.5 w-3.5" />
-                    {t.errUseridRequired}
-                  </p>
-                )}
-              </div>
+            <form onSubmit={onSubmit} noValidate className="mt-lg flex flex-col gap-md">
+              <Field
+                id="username"
+                label={t.useridLabel}
+                helper={t.useridHelper}
+                error={uErr ? t.errUseridRequired : undefined}
+              >
+                <input
+                  id="username"
+                  type="text"
+                  autoComplete="username"
+                  inputMode="numeric"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  onBlur={() => setTouched((s) => ({ ...s, u: true }))}
+                  placeholder={t.useridPlaceholder}
+                  aria-invalid={uErr}
+                  className={`control ${uErr ? "is-error" : ""}`}
+                />
+              </Field>
 
-              {/* Password */}
-              <div>
-                <label htmlFor="password" className="mb-1.5 block text-sm font-bold text-djp-blue">
-                  {t.passwordLabel}
-                </label>
+              <Field
+                id="password"
+                label={t.passwordLabel}
+                error={pErr ? t.errPasswordRequired : undefined}
+              >
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-muted)]" />
                   <input
                     id="password"
                     type={showPw ? "text" : "password"}
@@ -137,116 +121,75 @@ export default function LoginPage() {
                       setCapsOn(false);
                     }}
                     placeholder={t.passwordPlaceholder}
-                    className={`${inputBase} pl-11 pr-12 ${pErr ? "border-rose-300" : "border-djp-blue/20"}`}
+                    aria-invalid={pErr}
+                    className={`control pr-2xl ${pErr ? "is-error" : ""}`}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((v) => !v)}
-                    aria-label="Toggle password visibility"
-                    className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-[var(--text-muted)] transition hover:bg-djp-blue/5 hover:text-djp-blue"
-                  >
-                    {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
+                  <PasswordToggleButton
+                    shown={showPw}
+                    onToggle={() => setShowPw((v) => !v)}
+                    label={showPw ? t.hidePassword : t.showPassword}
+                  />
                 </div>
                 {capsOn && (
-                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#9a6b00]">
-                    <ArrowUp className="h-3.5 w-3.5" />
+                  <p className="helper flex items-center gap-xs">
+                    <Alert className="h-4 w-4 shrink-0" />
                     {t.capsWarning}
                   </p>
                 )}
-                {pErr && (
-                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600">
-                    <InfoCircle className="h-3.5 w-3.5" />
-                    {t.errPasswordRequired}
-                  </p>
-                )}
-              </div>
+              </Field>
 
-              {/* Captcha */}
-              <div>
-                <label className="mb-1.5 block text-sm font-bold text-djp-blue">
-                  {t.captchaLabel}
-                </label>
-                <label
-                  className={`flex cursor-pointer items-center gap-3.5 rounded-lg border px-4 py-3.5 transition ${
-                    captcha ? "border-djp-blue bg-djp-blue/5" : cErr ? "border-rose-300" : "border-djp-blue/20"
+              <div className="flex flex-col gap-sm">
+                <span className="type-label-md text-on-neutral">{t.captchaLabel}</span>
+                <div
+                  className={`rounded-sm border px-md py-md ${
+                    captcha
+                      ? "border-primary bg-tertiary"
+                      : cErr
+                        ? "border-error"
+                        : "border-border"
                   }`}
                 >
-                  <span
-                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border transition ${
-                      captcha ? "border-djp-blue bg-djp-blue text-white" : "border-djp-blue/30"
-                    }`}
-                  >
-                    {captcha && <Check className="h-4 w-4" />}
-                  </span>
-                  <input
-                    type="checkbox"
-                    className="sr-only"
+                  <Choice
+                    kind="checkbox"
+                    label={t.captchaCheckbox}
                     checked={captcha}
-                    onChange={(e) => {
-                      setCaptcha(e.target.checked);
+                    onChange={() => {
+                      setCaptcha((v) => !v);
                       setTouched((s) => ({ ...s, c: true }));
                     }}
                   />
-                  <span className="text-sm font-medium text-[var(--text-soft)]">
-                    {t.captchaCheckbox}
-                  </span>
-                </label>
-                {cErr && (
-                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose-600">
-                    <InfoCircle className="h-3.5 w-3.5" />
-                    {t.errCaptchaRequired}
-                  </p>
-                )}
+                </div>
+                {cErr && <p className="helper helper-error">{t.errCaptchaRequired}</p>}
               </div>
 
               <button
                 type="button"
-                className="self-end text-sm font-bold text-djp-blue transition hover:underline"
+                className="type-body-sm self-start text-primary hover:underline"
               >
                 {t.forgot}
               </button>
 
-              <Button type="submit" size="lg" disabled={loading} className="w-full">
-                {loading ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    {t.loginLoading}
-                  </>
-                ) : (
-                  t.loginButton
-                )}
+              <Button type="submit" size="lg" disabled={loading} className="btn-block mt-sm">
+                {loading ? t.loginLoading : t.loginButton}
               </Button>
-
-              <div className="relative my-2 text-center">
-                <span className="relative z-10 bg-white px-3 text-xs font-bold tracking-widest text-[var(--text-muted)]">
-                  {t.separator}
-                </span>
-                <span className="absolute left-0 top-1/2 h-px w-full bg-djp-blue/10" />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <MiniCard
-                  Icon={UserAdd}
-                  title={t.newUserTitle}
-                  desc={t.newUserDesc}
-                  href="/register"
-                />
-                <MiniCard Icon={UserTick} title={t.activationTitle} desc={t.activationDesc} />
-              </div>
             </form>
-          </div>
 
-          <div className="mt-6 text-center">
-            <Link
-              href="/"
-              className="text-sm font-semibold text-[var(--text-muted)] transition hover:text-djp-blue"
-            >
-              ← {t.backHome}
-            </Link>
-          </div>
-        </section>
-      )}
+            <div className="mt-lg">
+              <OrDivider label={t.separator} />
+            </div>
+
+            <div className="mt-lg grid gap-md">
+              <MiniCard title={t.newUserTitle} desc={t.newUserDesc} href="/register" />
+            </div>
+
+            <p className="mt-lg text-center">
+              <Link href="/" className="type-body-sm text-muted hover:text-primary">
+                {t.backHome}
+              </Link>
+            </p>
+          </>
+        );
+      }}
     </AuthShell>
   );
 }

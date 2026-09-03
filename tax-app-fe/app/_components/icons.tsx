@@ -3,7 +3,7 @@ import type { SVGProps } from "react";
 const base = {
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 2.5,
+  strokeWidth: 1.75,
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
   viewBox: "0 0 24 24",
@@ -225,6 +225,42 @@ export function IdCard(props: SVGProps<SVGSVGElement>) {
       <circle cx="9" cy="11" r="2.5" />
       <path d="M5 17c.6-1.7 2.1-2.5 4-2.5s3.4.8 4 2.5" />
       <path d="M15.5 9.5h4M15.5 13h4" />
+    </svg>
+  );
+}
+
+export function Plus(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+export function Close(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </svg>
+  );
+}
+
+export function ChevronRight(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <polyline points="9 6 15 12 9 18" />
+    </svg>
+  );
+}
+
+export function Alert(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   );
 }
