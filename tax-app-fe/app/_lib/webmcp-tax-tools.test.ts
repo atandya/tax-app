@@ -3,6 +3,12 @@ import {
   applyFilingProfile,
   type FilingProfile,
 } from "./filing-profile";
+import { applyAssets } from "./assets";
+import { applyDebts } from "./debts";
+import { applyWithholdingSlips } from "./withholding-slips";
+import { applyReturnAnswers } from "./return-answers";
+import { applyFamilyMembers } from "./family";
+import { applyIncomeAndCredits } from "./income-and-credits";
 import type { SptData, SptReturn } from "./spt";
 import {
   FORM_DONE_NEXT_STEP,
@@ -12,8 +18,20 @@ import {
   parseProfileInput,
   registerTaxReturnTools,
   TAX_TOOL_NAMES,
+  ADD_ASSETS_TOOL,
+  ADD_DEBTS_TOOL,
+  ADD_FAMILY_MEMBERS_TOOL,
+  ADD_WITHHOLDING_SLIPS_TOOL,
+  UPDATE_INCOME_AND_CREDITS_TOOL,
+  UPDATE_RETURN_ANSWERS_TOOL,
+  type AddAssetsResult,
+  type AddDebtsResult,
+  type AddFamilyMembersResult,
+  type AddWithholdingSlipsResult,
+  type UpdateReturnAnswersResult,
   UPDATE_TAXPAYER_PROFILE_INPUT_SCHEMA,
   UPDATE_TAXPAYER_PROFILE_TOOL,
+  type UpdateIncomeAndCreditsResult,
   type TaxModelContext,
   type TaxTool,
   type TaxToolDependencies,
@@ -29,6 +47,7 @@ function fixtureData(): SptData {
     income: { employment: 120_000_000 },
     credits: { withholding: 3_000_000 },
     answers: { q1a: "ya" },
+    assets: [{ category: "Kas dan Setara Kas", code: "011", description: "011 - Uang tunai", balance: 1_000_000, note: "Milik Sendiri" }],
     family: [{ name: "Synthetic Child", nik: "0000000000000000" }],
     employmentSlips: [{ employer: "PT Contoh Sintetis", employerNpwp: "00.000.000.0-000.000" }],
     declarationAgree: false,
@@ -74,6 +93,7 @@ function fakeDeps(initial: SptReturn, opts: { failSave?: boolean } = {}) {
   let current = initial;
   const saveCalls: FilingProfile[] = [];
   const revealCalls: SptReturn[] = [];
+  const revealSections: string[] = [];
   const deps: TaxToolDependencies = {
     getCurrentReturn: () => current,
     saveProfile: async (profile) => {
@@ -86,8 +106,63 @@ function fakeDeps(initial: SptReturn, opts: { failSave?: boolean } = {}) {
     revealProfileUpdate: (saved) => {
       revealCalls.push(saved);
     },
+    saveIncome: async (facts) => {
+      if (opts.failSave) throw new Error("boom");
+      const nextData = applyIncomeAndCredits(current.data, facts);
+      current = { ...current, data: nextData, updated_at: "2026-01-02T00:00:00.000Z" };
+      return current;
+    },
+    revealIncomeUpdate: (saved) => {
+      revealCalls.push(saved);
+    },
+    saveAssets: async (input) => {
+      if (opts.failSave) throw new Error("boom");
+      const nextData = applyAssets(current.data, input);
+      current = { ...current, data: nextData, updated_at: "2026-01-02T00:00:00.000Z" };
+      return current;
+    },
+    revealAssetsUpdate: (saved) => {
+      revealCalls.push(saved);
+    },
+    saveFamily: async (input) => {
+      if (opts.failSave) throw new Error("boom");
+      const nextData = applyFamilyMembers(current.data, input);
+      current = { ...current, data: nextData, updated_at: "2026-01-02T00:00:00.000Z" };
+      return current;
+    },
+    revealFamilyUpdate: (saved) => {
+      revealCalls.push(saved);
+    },
+    saveDebts: async (input) => {
+      if (opts.failSave) throw new Error("boom");
+      const nextData = applyDebts(current.data, input);
+      current = { ...current, data: nextData, updated_at: "2026-01-02T00:00:00.000Z" };
+      return current;
+    },
+    revealDebtsUpdate: (saved) => {
+      revealCalls.push(saved);
+    },
+    saveWithholdingSlips: async (input) => {
+      if (opts.failSave) throw new Error("boom");
+      const nextData = applyWithholdingSlips(current.data, input);
+      current = { ...current, data: nextData, updated_at: "2026-01-02T00:00:00.000Z" };
+      return current;
+    },
+    revealWithholdingUpdate: (saved) => {
+      revealCalls.push(saved);
+    },
+    saveAnswers: async (input) => {
+      if (opts.failSave) throw new Error("boom");
+      const nextData = applyReturnAnswers(current.data, input);
+      current = { ...current, data: nextData, updated_at: "2026-01-02T00:00:00.000Z" };
+      return current;
+    },
+    revealAnswersUpdate: (saved, _count, section) => {
+      revealCalls.push(saved);
+      revealSections.push(section);
+    },
   };
-  return { deps, saveCalls, revealCalls, getCurrent: () => current };
+  return { deps, saveCalls, revealCalls, revealSections, getCurrent: () => current };
 }
 
 function fakeModelContext() {
@@ -120,8 +195,384 @@ async function registerWithFakes(initial: SptReturn, opts?: { failSave?: boolean
       byName(UPDATE_TAXPAYER_PROFILE_TOOL).execute(input as Record<string, unknown>, execOpts) as Promise<
         UpdateTaxpayerProfileResult | TaxToolFailure
       >,
+    income: (input: unknown) =>
+      byName(UPDATE_INCOME_AND_CREDITS_TOOL).execute(input as Record<string, unknown>, execOpts) as Promise<
+        UpdateIncomeAndCreditsResult | TaxToolFailure
+      >,
+    assets: (input: unknown) =>
+      byName(ADD_ASSETS_TOOL).execute(input as Record<string, unknown>, execOpts) as Promise<
+        AddAssetsResult | TaxToolFailure
+      >,
+    family: (input: unknown) =>
+      byName(ADD_FAMILY_MEMBERS_TOOL).execute(input as Record<string, unknown>, execOpts) as Promise<
+        AddFamilyMembersResult | TaxToolFailure
+      >,
+    debts: (input: unknown) =>
+      byName(ADD_DEBTS_TOOL).execute(input as Record<string, unknown>, execOpts) as Promise<
+        AddDebtsResult | TaxToolFailure
+      >,
+    slips: (input: unknown) =>
+      byName(ADD_WITHHOLDING_SLIPS_TOOL).execute(input as Record<string, unknown>, execOpts) as Promise<
+        AddWithholdingSlipsResult | TaxToolFailure
+      >,
+    answers: (input: unknown) =>
+      byName(UPDATE_RETURN_ANSWERS_TOOL).execute(input as Record<string, unknown>, execOpts) as Promise<
+        UpdateReturnAnswersResult | TaxToolFailure
+      >,
   };
 }
+
+describe("update_return_answers", () => {
+  it("saves the given answers, reveals the first question's section, and reports the question map", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const result = await fakes.answers({ q13a: "no", q14c: "yes", q8: "no" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toEqual({ section: "questions", answered: ["q8", "q13a", "q14c"] });
+    expect(result.context.questions).toMatchObject({ q8: "no", q13a: "no", q14c: "yes", q13b: "unanswered" });
+    expect(fakes.getCurrent().data.answers).toEqual({ q1a: "ya", q8: "tidak", q13a: "tidak", q14c: "ya" });
+    expect(fakes.getCurrent().data.income).toEqual(fixtureData().income);
+    expect(fakes.revealSections).toEqual(["tax"]);
+    expect(JSON.stringify(result)).not.toContain("0000000000000000");
+  });
+
+  it("exposes every question with its wording in the schema and rejects amount-bearing or unknown questions", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const tool = fakes.registered.find((r) => r.tool.name === "update_return_answers")!.tool;
+    const props = (tool.inputSchema as { properties: Record<string, { description: string }> }).properties;
+    expect(Object.keys(props)).toEqual(["q8", "q10d", "q11b", "q13a", "q13b", "q13c", "q14b", "q14c", "q14d", "q14e", "q14f", "q14g"]);
+    expect(props.q14b.description).toMatch(/debts/);
+
+    const snapshot = structuredClone(fakes.getCurrent().data);
+    for (const bad of [{}, { q1a: "yes" }, { q10a: "no" }, { q8: "ya" }, { q99: "yes" }]) {
+      const result = await fakes.answers(bad);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("INVALID_ANSWERS");
+    }
+    expect(fakes.getCurrent().data).toEqual(snapshot);
+  });
+
+  it("refuses non-editable returns and reports SAVE_FAILED on a rejected save", async () => {
+    const locked = await registerWithFakes(fixtureReturn(fixtureData(), "REPORTED"));
+    const lockedResult = await locked.answers({ q8: "no" });
+    expect(lockedResult.ok).toBe(false);
+    if (!lockedResult.ok) expect(lockedResult.error.code).toBe("RETURN_NOT_EDITABLE");
+
+    const failing = await registerWithFakes(fixtureReturn(fixtureData()), { failSave: true });
+    const failed = await failing.answers({ q8: "no" });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error.code).toBe("SAVE_FAILED");
+  });
+
+  it("add_debts flips 14.b to yes", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    await fakes.debts({ debts: [{ type: "credit_card", balance: 1 }] });
+    expect(fakes.getCurrent().data.answers?.q14b).toBe("ya");
+    const ctx = await fakes.read();
+    expect((ctx as { context: { questions: { q14b: string } } }).context.questions.q14b).toBe("yes");
+  });
+});
+
+describe("add_withholding_slips", () => {
+  it("appends slips, re-derives line 10.a, and reports totals only", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const result = await fakes.slips({
+      slips: [
+        { withholderName: "PT Sintetis Baru", taxType: "pph21", amount: 7_000_000, taxBase: 180_000_000, withholderTaxId: "01.234.567.8-052.000", slipNumber: "1721-A1-0001", date: "2025-12-31" },
+        { withholderName: "Bank Sintetis", taxType: "final_4_2", amount: 200_000 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toEqual({
+      section: "withholdingSlips",
+      added: 2,
+      replaced: false,
+      totalRows: 2,
+      totalWithheld: 7_200_000,
+      withholdingCredit: 7_200_000,
+    });
+    expect(result.context.withholdingSlips).toEqual({ count: 2, byTaxType: { pph21: 1, final_4_2: 1 }, totalAmount: 7_200_000 });
+    expect(result.context.income.withholdingCredit).toBe(7_200_000);
+    const saved = fakes.getCurrent().data;
+    expect(saved.withholdingSlips).toEqual([
+      { withholder: "PT Sintetis Baru", taxType: "PPh Pasal 21", amount: 7_000_000, withholderNpwp: "01.234.567.8-052.000", slipNo: "1721-A1-0001", date: "2025-12-31", taxBase: 180_000_000 },
+      { withholder: "Bank Sintetis", taxType: "PPh Final Pasal 4 ayat (2)", amount: 200_000 },
+    ]);
+    expect(saved.credits).toEqual({ withholding: 7_200_000 });
+    expect(saved.answers).toMatchObject({ q10a: "ya" });
+    expect(saved.family).toEqual(fixtureData().family);
+    const json = JSON.stringify(result);
+    expect(json).not.toContain("PT Sintetis Baru");
+    expect(json).not.toContain("01.234.567.8-052.000");
+    expect(json).not.toContain("1721-A1-0001");
+    expect(fakes.revealCalls).toHaveLength(1);
+  });
+
+  it("keeps a manual credit when opted out and rejects invalid rows before any save", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const kept = await fakes.slips({ slips: [{ withholderName: "X", taxType: "pph23", amount: 500 }], updateWithholdingCredit: false });
+    expect(kept.ok).toBe(true);
+    if (kept.ok) expect(kept.changed.withholdingCredit).toBe(3_000_000);
+    expect(fakes.getCurrent().data.credits).toEqual(fixtureData().credits);
+
+    const snapshot = structuredClone(fakes.getCurrent().data);
+    for (const bad of [{}, { slips: [] }, { slips: [{ withholderName: "X", taxType: "vat", amount: 1 }] }, { slips: [{ withholderName: "X", taxType: "pph21", amount: 1.5 }] }, { slips: [{ withholderName: "X", taxType: "pph21", amount: 1, date: "bad" }] }]) {
+      const result = await fakes.slips(bad);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("INVALID_WITHHOLDING");
+    }
+    expect(fakes.getCurrent().data).toEqual(snapshot);
+  });
+
+  it("refuses non-editable returns and reports SAVE_FAILED on a rejected save", async () => {
+    const locked = await registerWithFakes(fixtureReturn(fixtureData(), "REPORTED"));
+    const lockedResult = await locked.slips({ slips: [{ withholderName: "X", taxType: "pph21", amount: 1 }] });
+    expect(lockedResult.ok).toBe(false);
+    if (!lockedResult.ok) expect(lockedResult.error.code).toBe("RETURN_NOT_EDITABLE");
+
+    const failing = await registerWithFakes(fixtureReturn(fixtureData()), { failSave: true });
+    const failed = await failing.slips({ slips: [{ withholderName: "X", taxType: "pph21", amount: 1 }] });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error.code).toBe("SAVE_FAILED");
+  });
+});
+
+describe("add_debts", () => {
+  it("appends rows in the part B layout and reports totals only", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const result = await fakes.debts({
+      debts: [
+        { type: "bank_loan", balance: 250_000_000, creditorName: "Bank KPR Sintetis", creditorTaxId: "01.234.567.8-901.000", year: 2020, description: "KPR rumah" },
+        { type: "credit_card", balance: 3_000_000 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toEqual({ section: "debts", added: 2, replaced: false, totalRows: 2, totalBalance: 253_000_000 });
+    expect(result.context.debts).toEqual({ count: 2, byType: { bank_loan: 1, credit_card: 1 }, totalBalance: 253_000_000 });
+    expect(fakes.getCurrent().data.debts).toEqual([
+      { code: "101 - Utang bank / lembaga keuangan bukan bank", description: "KPR rumah", country: "Indonesia", balance: 250_000_000, note: "Milik Sendiri", creditorName: "Bank KPR Sintetis", creditorId: "01.234.567.8-901.000", year: 2020 },
+      { code: "102 - Kartu kredit", description: "Kartu kredit", country: "Indonesia", balance: 3_000_000, note: "Milik Sendiri" },
+    ]);
+    expect(fakes.getCurrent().data.assets).toEqual(fixtureData().assets);
+    const json = JSON.stringify(result);
+    expect(json).not.toContain("Bank KPR Sintetis");
+    expect(json).not.toContain("01.234.567.8-901.000");
+    expect(json).not.toContain("0000000000000000");
+    expect(fakes.revealCalls).toHaveLength(1);
+  });
+
+  it("replaces on request and rejects invalid rows before any save", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    await fakes.debts({ debts: [{ type: "other", balance: 1 }] });
+    const replaced = await fakes.debts({ debts: [{ type: "credit_card", balance: 5 }], replaceExisting: true });
+    expect(replaced.ok).toBe(true);
+    if (replaced.ok) expect(replaced.changed).toMatchObject({ added: 1, replaced: true, totalRows: 1, totalBalance: 5 });
+
+    const snapshot = structuredClone(fakes.getCurrent().data);
+    for (const bad of [{}, { debts: [] }, { debts: [{ type: "mortgage", balance: 1 }] }, { debts: [{ type: "bank_loan", balance: -1 }] }]) {
+      const result = await fakes.debts(bad);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("INVALID_DEBTS");
+    }
+    expect(fakes.getCurrent().data).toEqual(snapshot);
+  });
+
+  it("refuses non-editable returns and reports SAVE_FAILED on a rejected save", async () => {
+    const locked = await registerWithFakes(fixtureReturn(fixtureData(), "REPORTED"));
+    const lockedResult = await locked.debts({ debts: [{ type: "other", balance: 1 }] });
+    expect(lockedResult.ok).toBe(false);
+    if (!lockedResult.ok) expect(lockedResult.error.code).toBe("RETURN_NOT_EDITABLE");
+
+    const failing = await registerWithFakes(fixtureReturn(fixtureData()), { failSave: true });
+    const failed = await failing.debts({ debts: [{ type: "other", balance: 1 }] });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error.code).toBe("SAVE_FAILED");
+  });
+});
+
+describe("add_family_members", () => {
+  it("appends rows in the part C layout and reports counts only", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const result = await fakes.family({
+      members: [
+        { name: "Anak Sintetis Dua", relation: "child", nik: "1234567890123456", birthDate: "2015-06-30" },
+        { name: "Ibu Sintetis", relation: "parent", occupation: "Pensiunan" },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toEqual({ section: "family", added: 2, replaced: false, totalRows: 3 });
+    expect(result.context.family).toEqual({ count: 3, byRelation: { other: 1, child: 1, parent: 1 } });
+    expect(fakes.getCurrent().data.family).toEqual([
+      ...fixtureData().family!,
+      { name: "Anak Sintetis Dua", relation: "Anak Kandung", nik: "1234567890123456", birthDate: "2015-06-30" },
+      { name: "Ibu Sintetis", relation: "Orang Tua", job: "Pensiunan" },
+    ]);
+    expect(fakes.getCurrent().data.assets).toEqual(fixtureData().assets);
+    const json = JSON.stringify(result);
+    expect(json).not.toContain("Anak Sintetis Dua");
+    expect(json).not.toContain("1234567890123456");
+    expect(json).not.toContain("2015-06-30");
+    expect(json).not.toContain("Synthetic Child");
+    expect(fakes.revealCalls).toHaveLength(1);
+  });
+
+  it("asks for dependants after a profile with dependants when none are listed", async () => {
+    const fakes = await registerWithFakes(fixtureReturn({ ...fixtureData(), family: [] }));
+    const profile = await fakes.update({ maritalStatus: "married", dependentCount: 1 });
+    expect(profile.ok).toBe(true);
+    if (!profile.ok) return;
+    expect(profile.context.sectionsMissing).toContain("family");
+    expect(profile.nextStep.hint).toMatch(/add_family_members/);
+    const added = await fakes.family({ members: [{ name: "Anak", relation: "child" }] });
+    expect(added.ok).toBe(true);
+    if (added.ok) expect(added.context.sectionsMissing).not.toContain("family");
+  });
+
+  it("rejects invalid rows before any save and refuses locked returns", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const snapshot = structuredClone(fakes.getCurrent().data);
+    for (const bad of [{}, { members: [] }, { members: [{ name: "X", relation: "cousin" }] }, { members: [{ name: "X", relation: "child", nik: "12" }] }]) {
+      const result = await fakes.family(bad);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("INVALID_FAMILY");
+    }
+    expect(fakes.getCurrent().data).toEqual(snapshot);
+
+    const locked = await registerWithFakes(fixtureReturn(fixtureData(), "REPORTED"));
+    const lockedResult = await locked.family({ members: [{ name: "X", relation: "child" }] });
+    expect(lockedResult.ok).toBe(false);
+    if (!lockedResult.ok) expect(lockedResult.error.code).toBe("RETURN_NOT_EDITABLE");
+
+    const failing = await registerWithFakes(fixtureReturn(fixtureData()), { failSave: true });
+    const failed = await failing.family({ members: [{ name: "X", relation: "child" }] });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error.code).toBe("SAVE_FAILED");
+  });
+});
+
+describe("add_assets", () => {
+  it("appends rows in the sub-table layout and reports totals only", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const result = await fakes.assets({
+      assets: [
+        { category: "cash", code: "012", value: 25_000_000, institutionName: "Bank Sintetis", accountNo: "1234567890" },
+        { category: "movable", code: "041", value: 150_000_000, acquisitionPrice: 200_000_000, year: 2021 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toEqual({
+      section: "assets",
+      added: 2,
+      replaced: false,
+      totalRows: 3,
+      totalCurrentValue: 176_000_000,
+    });
+    expect(result.context.assets).toEqual({
+      count: 3,
+      byCategory: { cash: 2, movable: 1 },
+      totalAcquisition: 226_000_000,
+      totalCurrentValue: 176_000_000,
+    });
+    const saved = fakes.getCurrent().data.assets ?? [];
+    expect(saved).toEqual([
+      fixtureData().assets![0],
+      { category: "Kas dan Setara Kas", code: "012", description: "012 - Tabungan", note: "Milik Sendiri", balance: 25_000_000, location: "Dalam Negeri", institutionName: "Bank Sintetis", accountNo: "1234567890" },
+      { category: "Harta Bergerak", code: "041", description: "041 - Alat transportasi", note: "Milik Sendiri", year: 2021, value: 150_000_000, acquisitionPrice: 200_000_000, location: "Dalam Negeri" },
+    ]);
+    expect(fakes.getCurrent().data.family).toEqual(fixtureData().family);
+    const json = JSON.stringify(result);
+    expect(json).not.toContain("1234567890");
+    expect(json).not.toContain("Bank Sintetis");
+    expect(json).not.toContain("0000000000000000");
+    expect(fakes.revealCalls).toHaveLength(1);
+  });
+
+  it("replaces on request and rejects invalid rows before any save", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    await fakes.assets({ assets: [{ category: "cash", code: "011", value: 1_000_000 }] });
+    const replaced = await fakes.assets({ assets: [{ category: "property", code: "061", value: 5 }], replaceExisting: true });
+    expect(replaced.ok).toBe(true);
+    if (replaced.ok) expect(replaced.changed).toMatchObject({ added: 1, replaced: true, totalRows: 1 });
+
+    const snapshot = structuredClone(fakes.getCurrent().data);
+    for (const bad of [{}, { assets: [] }, { assets: [{ category: "cash", code: "061", value: 1 }] }, { assets: [{ category: "cash", code: "012", value: 1.5 }] }]) {
+      const result = await fakes.assets(bad);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("INVALID_ASSETS");
+    }
+    expect(fakes.getCurrent().data).toEqual(snapshot);
+  });
+
+  it("refuses non-editable returns and reports SAVE_FAILED on a rejected save", async () => {
+    const locked = await registerWithFakes(fixtureReturn(fixtureData(), "REPORTED"));
+    const lockedResult = await locked.assets({ assets: [{ category: "cash", code: "011", value: 1 }] });
+    expect(lockedResult.ok).toBe(false);
+    if (!lockedResult.ok) expect(lockedResult.error.code).toBe("RETURN_NOT_EDITABLE");
+
+    const failing = await registerWithFakes(fixtureReturn(fixtureData()), { failSave: true });
+    const failed = await failing.assets({ assets: [{ category: "cash", code: "011", value: 1 }] });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error.code).toBe("SAVE_FAILED");
+  });
+});
+
+describe("update_income_and_credits", () => {
+  it("saves employment and withholding, derives net, and reports the recomputed return", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    const result = await fakes.income({
+      employment: { employerName: "PT Sintetis Baru", grossIncome: 220_000_000, deductions: 5_500_000 },
+      withholdingCredit: 12_000_000,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toEqual({
+      section: "incomeAndCredits",
+      fields: ["employment", "withholdingCredit"],
+      employmentNet: 214_500_000,
+    });
+    expect(result.context.income.employmentNet).toBe(214_500_000);
+    expect(result.context.income.withholdingCredit).toBe(12_000_000);
+    expect(result.context.sectionsMissing).toEqual([]);
+    const saved = fakes.getCurrent().data;
+    expect(saved.employmentSlips).toEqual([
+      { employer: "PT Sintetis Baru", employerNpwp: "", gross: 220_000_000, deduction: 5_500_000, net: 214_500_000 },
+    ]);
+    expect(saved.answers).toMatchObject({ q1a: "ya", q10a: "ya" });
+    expect(saved.family).toEqual(fixtureData().family);
+    expect(fakes.revealCalls).toHaveLength(1);
+    const json = JSON.stringify(result);
+    expect(json).not.toContain("0000000000000000");
+    expect(json).not.toContain("Synthetic Child");
+  });
+
+  it("rejects invalid input before touching the return", async () => {
+    const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
+    for (const bad of [{}, { salary: 1 }, { zakat: -5 }, { employment: { employerName: "X", grossIncome: 1, deductions: 9 } }]) {
+      const result = await fakes.income(bad);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("INVALID_INCOME");
+    }
+    expect(fakes.getCurrent().data).toEqual(fixtureData());
+    expect(fakes.revealCalls).toHaveLength(0);
+  });
+
+  it("refuses non-editable returns and reports SAVE_FAILED on a rejected save", async () => {
+    const locked = await registerWithFakes(fixtureReturn(fixtureData(), "REPORTED"));
+    const lockedResult = await locked.income({ zakat: 1_000_000 });
+    expect(lockedResult.ok).toBe(false);
+    if (!lockedResult.ok) expect(lockedResult.error.code).toBe("RETURN_NOT_EDITABLE");
+
+    const failing = await registerWithFakes(fixtureReturn(fixtureData()), { failSave: true });
+    const failed = await failing.income({ zakat: 1_000_000 });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error.code).toBe("SAVE_FAILED");
+    expect(failing.getCurrent().data).toEqual(fixtureData());
+  });
+});
 
 const MAPPING: Array<[FilingProfile, string]> = [
   [{ maritalStatus: "unmarried", dependentCount: 0 }, "TK/0"],
@@ -137,13 +588,20 @@ const MAPPING: Array<[FilingProfile, string]> = [
 // ---- discovery metadata ----
 
 describe("registerTaxReturnTools discovery metadata", () => {
-  it("registers exactly the two slice tools, in order, with a shared abort signal", async () => {
+  it("registers exactly the eight form tools, in order, with a shared abort signal", async () => {
     const { registered, controller } = await registerWithFakes(fixtureReturn(fixtureData()));
-    expect(registered.map((r) => r.tool.name)).toEqual([
+    const expected = [
       "get_tax_return_context",
       "update_taxpayer_profile",
-    ]);
-    expect([...TAX_TOOL_NAMES]).toEqual(["get_tax_return_context", "update_taxpayer_profile"]);
+      "update_income_and_credits",
+      "add_assets",
+      "add_family_members",
+      "add_debts",
+      "add_withholding_slips",
+      "update_return_answers",
+    ];
+    expect(registered.map((r) => r.tool.name)).toEqual(expected);
+    expect([...TAX_TOOL_NAMES]).toEqual(expected);
     for (const r of registered) {
       expect(r.options?.signal).toBe(controller.signal);
     }
@@ -155,7 +613,7 @@ describe("registerTaxReturnTools discovery metadata", () => {
     for (const banned of ["submit", "declar", "lapor", "pernyataan", "sign", "payment", "bayar"]) {
       expect(names.some((n) => n.includes(banned))).toBe(false);
     }
-    expect(registered).toHaveLength(2);
+    expect(registered).toHaveLength(8);
   });
 
   it("describes get_tax_return_context exactly as specified", async () => {
@@ -235,11 +693,7 @@ describe("get_tax_return_context", () => {
       "0000000000000000",
       "Wajib Pajak Sintetis",
       "PT Contoh Sintetis",
-      "120000000",
       "user_id",
-      "income",
-      "credits",
-      "family",
       "employmentSlips",
       "declarationAgree",
     ]) {
@@ -416,10 +870,7 @@ describe("update_taxpayer_profile", () => {
       "0000000000000000",
       "Wajib Pajak Sintetis",
       "PT Contoh Sintetis",
-      "120000000",
       "user_id",
-      "income",
-      "family",
     ]) {
       expect(json).not.toContain(leak);
     }

@@ -171,7 +171,48 @@ describe("buildTaxReturnContext", () => {
         id: PROFILE_QUESTION.id,
         en: "Were you married at the end of the tax year, and how many eligible dependants did you support (from zero to three)?",
       },
+      income: {
+        employmentNet: 174_000_000,
+        business: 0,
+        other: 1_000,
+        foreign: 0,
+        zakat: 500_000,
+        withholdingCredit: 2_000_000,
+        installment25: 0,
+        stp25: 0,
+      },
+      computed: ctx.computed,
+      assets: { count: 1, byCategory: { cash: 1 }, totalAcquisition: 10, totalCurrentValue: 10 },
+      family: { count: 1, byRelation: { child: 1 } },
+      debts: { count: 1, byType: { credit_card: 1 }, totalBalance: 5 },
+      withholdingSlips: { count: 1, byTaxType: { other: 1 }, totalAmount: 1 },
+      questions: ctx.questions,
+      sectionsMissing: [],
     });
+    expect(ctx.questions.q8).toBe("unanswered");
+    expect(Object.keys(ctx.questions)).toHaveLength(12);
+    expect(Object.keys(ctx.computed).sort()).toEqual([
+      "balanceDue",
+      "pphCredit",
+      "pphOwed",
+      "ptkpAmount",
+      "paymentStatus",
+      "taxableIncome",
+      "totalNet",
+    ].sort());
+  });
+
+  it("asks the income question once the profile is confirmed but income is missing", () => {
+    const data = applyFilingProfile({ ...fixtureData(), income: {}, credits: {} }, { maritalStatus: "married", dependentCount: 1 });
+    const ctx = buildTaxReturnContext(fixtureReturn(data));
+    expect(ctx.sectionsMissing).toEqual(["employmentIncome", "withholdingCredit"]);
+    const noAssets = buildTaxReturnContext(fixtureReturn({ ...data, assets: [] }));
+    expect(noAssets.sectionsMissing).toContain("assets");
+    const noFamily = buildTaxReturnContext(fixtureReturn({ ...data, family: [] }));
+    expect(noFamily.sectionsMissing).toContain("family");
+    const noDependants = applyFilingProfile({ ...data, family: [] }, { maritalStatus: "married", dependentCount: 0 });
+    expect(buildTaxReturnContext(fixtureReturn(noDependants)).sectionsMissing).not.toContain("family");
+    expect(ctx.suggestedQuestion?.id).toBe("employment_income");
   });
 
   it("defaults the PTKP code when identity is absent", () => {
@@ -214,7 +255,6 @@ describe("buildTaxReturnContext", () => {
     expect(json).not.toContain("Wajib Pajak Sintetis");
     expect(json).not.toContain("PT Contoh Sintetis");
     expect(json).not.toContain("synthetic");
-    expect(json).not.toContain("174000000");
     for (const key of [
       "user_id",
       "taxpayer_name",
@@ -222,14 +262,8 @@ describe("buildTaxReturnContext", () => {
       "taxpayer_username",
       "nik",
       "npwp",
-      "income",
-      "credits",
       "deductions",
-      "assets",
-      "debts",
-      "family",
       "employmentSlips",
-      "withholdingSlips",
       "answers",
       "declarationAgree",
     ]) {
@@ -237,6 +271,14 @@ describe("buildTaxReturnContext", () => {
     }
     expect(Object.keys(ctx).sort()).toEqual(
       [
+        "income",
+        "computed",
+        "assets",
+        "family",
+        "debts",
+        "withholdingSlips",
+        "questions",
+        "sectionsMissing",
         "returnId",
         "taxYear",
         "formType",

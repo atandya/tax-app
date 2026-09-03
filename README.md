@@ -1,19 +1,20 @@
-# Coretax Demo — Tax Filing with WebMCP
+# EasyTax Demo — Tax Filing with WebMCP
 
 **A detailed tax form. A conversation to help you through it.**
 
 This hackathon prototype explores how an AI assistant can help a salaried worker
-complete an Indonesian individual income-tax return. It recreates part of
-**Coretax**, Indonesia's tax-administration portal, and adds **WebMCP tools** that
-let a compatible assistant work with the website's own forms and saved drafts.
+complete an Indonesian individual income-tax return. **EasyTax** recreates the
+shape of **Coretax**, Indonesia's tax-administration portal, and adds **WebMCP
+tools** that let a compatible assistant work with the website's own forms and
+saved drafts.
 
 The idea is not to hide the form's complexity. Knowing your salary or family
 situation is different from knowing which tax field or classification it belongs
 in. We keep the detailed form visible, then let the assistant ask for facts in
 plain language and use the website to apply them.
 
-**[Open the live demo](https://coretax-demo.vercel.app) ·
-[Start at sign-in](https://coretax-demo.vercel.app/login)**
+**[Open the live demo](https://easytax-demo.vercel.app) ·
+[Start at sign-in](https://easytax-demo.vercel.app/login)**
 
 [Starting scenario](#synthetic-data-bank) ·
 [Full synthetic data bank](SYNTHETIC_DATA_BANK.md) ·
@@ -25,8 +26,8 @@ plain language and use the website to apply them.
 > records are synthetic. They are not valid government or banking records.
 > Any resemblance to real people or organisations is coincidental. This project
 > is not affiliated with or endorsed by Indonesia's Directorate General of Taxes
-> (DJP). Government-style branding and screens are part of the simulation.
-> Nothing is filed with DJP, no real payment is made, and this is not tax advice.
+> (DJP). Government-style screens are part of the simulation. Nothing is filed
+> with DJP, no real payment is made, and this is not tax advice.
 > **Never enter real personal, tax, bank, or government-account information.**
 
 ## Start here — no Indonesian ID required
@@ -37,51 +38,58 @@ explore the hosted website manually.
 
 ### With an assistant that supports this site's WebMCP interface
 
-1. Open [the demo login page](https://coretax-demo.vercel.app/login) **inside the
+1. Open [the demo login page](https://easytax-demo.vercel.app/login) **inside the
    compatible client's browser**. The assistant needs access to that page's tools;
    pasting its URL into an ordinary chat is not enough by itself.
 2. Ask:
 
-   > Help me with the synthetic demo taxpayer's 2025 tax return. Sign in to the
-   > demo account, open the existing draft, and ask me for the profile information
-   > you need. Please explain unfamiliar terms in English. Do not submit anything.
+   > Help me file the synthetic demo taxpayer's 2025 tax return. Sign in to the
+   > demo account, open the existing draft, and ask me for whatever you need,
+   > one section at a time. Please explain unfamiliar terms in English. Do not
+   > submit anything.
 
-3. Use the scenario below when answering. For the profile question, say:
+3. Answer with the scenario below. The assistant should work through the return
+   in this order, calling one site tool per step and never guessing a value:
 
-   > In this fictional scenario, I was married at the end of 2025 and supported
-   > one eligible dependent child. Please save that profile.
+   | Step | What you say | What the website does |
+   |---|---|---|
+   | Profile | "I was married at the end of 2025 and supported one eligible dependent child." | Derives **`K/1`** and shows a saved-by-assistant notice |
+   | Income | "My employer was PT Nusantara Digital, gross salary 180 million for the year, 6 million in pay deductions." | Records the employment slip, derives net income, recomputes the tax |
+   | Withholding | "They withheld 7 million in tax; the slip is a 1721-A1." | Adds the certificate and sets the withholding credit to the sum of all slips |
+   | Assets | "I have a savings account at Bank Nusantara with 85 million." | Adds the row to the cash table and updates the asset totals |
+   | Dependants | "My dependant is my daughter, Siti Rahma Santoso." | Adds her to the family table; the tool never repeats her details back |
+   | Debts | "No loans or credit-card balances." | Nothing to add; the assistant moves on |
+   | Questions | Answer the remaining Yes/No questions the assistant reads out | Saves each answer exactly as given |
 
-4. The website should show **`K/1`**, its code for married with one eligible
-   dependant, and a notice that the assistant saved the profile. Reload the page
-   to see that the saved classification remains.
-5. Review the remaining form yourself. The current assistant tools do **not**
-   fill salary, bank, asset, or withholding fields, or submit the return.
+4. Reload the page. Every saved value remains, and the balance at the bottom of
+   the form reflects the website's own calculation.
+5. Review the form yourself. Declaration and submission stay manual; no site tool
+   can do them, and the assistant should say so if asked.
 
 The demo sign-in tool opens the fixed synthetic taxpayer's session; you do not
-need to give the assistant a password. The page may already contain `K/1` or a
-confirmed profile from another visitor. In that case, there may be no visible
-code change and the assistant should not needlessly ask for already-confirmed
-facts.
+need to give the assistant a password. The shared draft may already contain
+values from another visitor. In that case the assistant should read the current
+state first and not needlessly ask for already-confirmed facts.
 
-**Compatibility:** the current implementation registers tools through
-`document.modelContext.registerTool()`. It requires a client exposing that
-interface. Native client discovery and navigation still need verification;
-automated tests using a substitute registry are not proof of native support.
-Do not assume that every Chrome version or ChatGPT session exposes these tools.
-If the assistant cannot see them, use the manual path below.
+**Compatibility:** the website registers tools through
+`document.modelContext.registerTool()`, which Chrome exposes behind the
+`chrome://flags/#enable-webmcp-testing` flag from version 149 (note the API
+lives on `document`, not `navigator`). Automated tests use a substitute
+registry, which proves the page's contract but not native discovery in every
+client. If the assistant cannot see the tools, use the manual path below.
 
 ### Without WebMCP — use the same website manually
 
-1. Open [sign-in](https://coretax-demo.vercel.app/login). Use the **EN** language
+1. Open [sign-in](https://easytax-demo.vercel.app/login). Use the **EN** language
    toggle for the entry screens; much of the tax form remains in Indonesian.
 2. Enter the demo **User ID** and **Password** below, check **I'm not a robot**
    (`Saya bukan robot`), and choose **Sign In** (`Masuk`).
 3. On the taxpayer dashboard, open the existing **2025** return. `Konsep SPT`
    means an editable draft. If no return exists for that year, create a **1770 S**
    draft. The app refuses a second return for a year that already exists.
-4. In **Induk** (the main form), find the **PTKP** selector. For the scenario
-   below, choose **K/1**, then **Simpan** (Save).
-5. Use the glossary and sample records below to explore **Lampiran L-1** (the
+4. In the main form (**Formulir induk**), find the **PTKP** selector. For the
+   scenario below, choose **K/1**, then **Simpan konsep** (Save draft).
+5. Use the glossary and sample records below to explore **Lampiran I** (the
    supporting tables). Saving is separate from submitting.
 
 The hosted account is shared: edits persist and other visitors may change them.
@@ -121,8 +129,8 @@ the punctuated NPWP. Do not try to register the existing demo ID again.
 
 ### Family record
 
-The following child can be entered in **Lampiran L-1 → C: Anggota Keluarga
-Tanggungan** (dependent family members).
+Tell the assistant about this child, or enter her in **Lampiran I → C: Anggota
+Keluarga Tanggungan** (dependent family members) by hand.
 
 | Field | Synthetic value |
 |---|---|
@@ -133,16 +141,18 @@ Tanggungan** (dependent family members).
 | Occupation | `Pelajar` — student |
 
 For the profile demonstration, her eligibility is a **given fictional fact**,
-not something the assistant has legally assessed. The current tool accepts
-zero to three eligible dependants. Having five children does not mean entering
-five in that tool: family records and the supported PTKP count are separate.
+not something the assistant has legally assessed. The profile tool accepts zero
+to three eligible dependants; the family tool accepts any number of rows. Having
+five children does not mean entering five in the profile: family records and the
+supported PTKP count are separate.
 
 ### Salary and employer-issued tax record
 
-Enter employment figures in **Lampiran L-1 → D: Penghasilan Neto dari Pekerjaan**
-(employment income), and the withholding record in **E: Bukti Pemotongan /
-Pemungutan PPh** (tax already withheld). The deduction below reduces gross
-salary to net employment income; it is **not** tax paid and is separate from PTKP.
+Tell the assistant these figures, or enter them in **Lampiran I → D:
+Penghasilan Neto dari Pekerjaan** (employment income) and **E: Bukti
+Pemotongan / Pemungutan PPh** (tax already withheld). The deduction below
+reduces gross salary to net employment income; it is **not** tax paid and is
+separate from PTKP.
 
 | Field | Synthetic value |
 |---|---|
@@ -163,7 +173,8 @@ tax-base field is not the same as the return's final taxable-income total.
 
 ### Savings account
 
-Use **Lampiran L-1 → A.1: Kas dan Setara Kas** (cash and cash equivalents).
+Tell the assistant about this account, or enter it in **Lampiran I → A.1: Kas
+dan Setara Kas** (cash and cash equivalents).
 
 | Field | Synthetic value |
 |---|---|
@@ -182,10 +193,11 @@ may display it as `Rp 180.000.000`. The dots group thousands, not decimal places
 Dates above use `YYYY-MM-DD`; choose the equivalent date in a date picker.
 
 **This scenario is not a snapshot of the shared database.** The pre-filled demo
-draft includes additional assets, debts, and withholding records. Do not add a
-second copy of an existing record when using these examples. The profile tool
-preserves unrelated records, so changing it to `K/1` does not replace the draft
-with this scenario or guarantee a particular final tax balance.
+draft already includes assets, debts, and withholding records. The row-adding
+tools append by default, so ask the assistant to replace the existing rows if
+you want the form to match this scenario exactly, and do not add a second copy
+of a record by hand. Changing the profile alone does not replace the draft or
+guarantee a particular final tax balance.
 
 ## A short guide to the Indonesian labels
 
@@ -199,19 +211,21 @@ These explanations describe how to read this prototype, not legal filing advice.
 | NIK / NPWP | National identity number / tax identification number |
 | PTKP | The personal tax-free allowance used in the demo's calculation |
 | K/1 | Married, one eligible dependant; the website derives this from the two profile facts |
-| Induk / Lampiran L-1 | Main return / supporting tables for financial and family records |
+| Formulir induk / Lampiran I | Main return / supporting tables for financial and family records |
 | Penghasilan Bruto / Neto | Gross income / net income after the relevant deduction |
 | Bukti Potong | A record of tax withheld by an employer or other organisation |
 | Harta / Utang | Assets / debts |
 | Ya / Tidak | Yes / No |
-| Simpan / Konsep SPT | Save / draft return |
-| Bayar dan Lapor | “Pay and File” — a simulated submission action here; no actual payment |
+| Simpan konsep / Konsep SPT | Save draft / draft return |
+| Bayar dan lapor | “Pay and file” — a simulated submission action here; no actual payment |
 | Kurang Bayar / Nihil / Lebih Bayar | Amount still due / zero balance / excess tax credit in the demo calculation |
 
 ## What the assistant can do today
 
-The broader goal is conversational tax-form assistance. The implemented slice
-currently covers **sign-in, draft navigation, and taxpayer-profile classification**.
+The site exposes tools for sign-in, draft navigation, and every writable section
+of the 1770 S return that a salaried filer uses. The assistant never has to
+invent a tax code or do the arithmetic: **the website derives, validates, and
+recomputes**. Manual editing and tool-based editing share the same saved return.
 
 | Page | WebMCP tool | What it does |
 |---|---|---|
@@ -219,28 +233,41 @@ currently covers **sign-in, draft navigation, and taxpayer-profile classificatio
 | `/spt` | `list_tax_returns` | Lists the signed-in taxpayer's return summaries |
 | `/spt` | `open_tax_return` | Opens an editable return |
 | `/spt` | `create_tax_return` | Creates a 1770 S draft for a supported year: 2025, 2024, or 2023 |
-| `/spt/[id]` | `get_tax_return_context` | Reads filing state and missing profile facts, not the entire financial record |
-| `/spt/[id]` | `update_taxpayer_profile` | Saves confirmed marital status and eligible-dependant count; updates PTKP |
+| `/spt/[id]` | `get_tax_return_context` | Reads filing state, saved amounts, the website's computation, section counts, the Yes/No question map, and which sections are still missing; never names or identifiers |
+| `/spt/[id]` | `update_taxpayer_profile` | Saves confirmed marital status and eligible-dependant count; the website derives PTKP |
+| `/spt/[id]` | `update_income_and_credits` | Saves the employer, annual gross salary, pay deductions, other income, zakat, and tax credits; the website derives net income, sets the related Yes/No answers, and recomputes the tax |
+| `/spt/[id]` | `add_assets` | Adds year-end asset rows (cash, receivables, investments, vehicles, property, other) by category and DJP code with current values; the website fills the matching Lampiran I sub-table and totals |
+| `/spt/[id]` | `add_family_members` | Adds dependant family members by name and relationship, with NIK, birth date, and occupation only when given; results report counts, never identities |
+| `/spt/[id]` | `add_debts` | Adds year-end debt rows (bank loans, credit cards, related-party loans, other) with balances and optional creditor details; results report counts and totals, never creditors |
+| `/spt/[id]` | `add_withholding_slips` | Adds withholding certificates (1721-A1 and similar) by withholder, tax type, and amount; by default the website sums them into the withholding credit on line 10.a and recomputes the balance |
+| `/spt/[id]` | `update_return_answers` | Saves the standalone Yes/No questions (8, 10.d, 11.b, 13.a–c, 14.b–g) exactly as the user answered them; questions that carry an amount stay with their section tools |
 
-The assistant does not need to invent a tax code: **the website derives and
-validates it**. Manual editing and tool-based editing use the same saved return.
-The page registers its tools when mounted and removes them when leaving it.
+Every write tool follows the same rules: it validates its input before touching
+the draft, refuses returns that are no longer editable, applies its change on
+top of the latest form state so unsaved manual edits survive, saves the whole
+document through the authenticated API, and reports back from the server's
+canonical response. Each result also tells the assistant which section to ask
+about next. The page registers its tools when mounted and removes them when
+leaving it.
 
 There is no separate MCP server to install for these site tools. They run in the
 webpage and call its authenticated backend. An external agent client supplies
 the conversation; this website does not include its own chat assistant.
 
-### What is outside the current slice
+### What is outside the current scope
 
-- No WebMCP tools for salary, assets, debts, family-table rows, withholding
-  records, or filling the whole return. Those form sections remain manual.
-- No OCR or document-import WebMCP tool.
-- No general-purpose tax-law advice service or verification of real IDs.
 - No tools for declaration, submission, deletion, approval, or rejection.
   Those actions remain manual. Simulated submission changes stored status and
   can make the shared draft read-only; it is not just a harmless page preview.
+- No tool for the section A header dropdowns (return status, bookkeeping
+  method, period, income source); the seeded defaults suit a salaried filer.
+- Sections F (amendment), G (refund request and bank details), and I
+  (attachments) are read-only in the form itself, so no tool writes them.
+- No OCR or document-import tool, no tax-law advice service, and no
+  verification of real IDs.
 - No claim of complete Coretax parity, production readiness, or verified native
-  discovery. Manual use remains available when WebMCP is absent or rejected.
+  discovery in every client. Manual use remains available when WebMCP is absent
+  or rejected.
 
 ## Run a local copy
 
@@ -329,10 +356,13 @@ variables. Change navigation to `hard` only when native-client testing shows it
 is needed.
 
 The hosted setup uses separate Vercel projects for `tax-app-fe` and `tax-app-be`,
-with Neon PostgreSQL. Both projects deploy from `main`. Demo-login flags are
-enabled for Production and Preview; existing deployments need a rebuild to pick
-up changed environment values. Authentication uses the app's database, never
-government endpoints. Local `.env` files are not uploaded as hosted secrets.
+with Neon PostgreSQL. Both projects deploy from `main`. Point the frontend's
+`BACKEND_URL` at the backend project's stable production domain, not at a
+per-deployment URL, or the `/api/be` proxy breaks when the backend redeploys.
+Demo-login flags are enabled for Production and Preview; existing deployments
+need a rebuild to pick up changed environment values. Authentication uses the
+app's database, never government endpoints. Local `.env` files are not uploaded
+as hosted secrets.
 
 ### Checks
 
@@ -353,7 +383,7 @@ npm run build
 
 These checks do not certify native agent discovery. In a compatible client,
 separately verify that the login tool is discoverable, navigation exposes the
-dashboard/form tools, and a confirmed profile survives a reload.
+dashboard and form tools, and a saved section survives a reload.
 
 ### Keeping or resetting local data
 
@@ -373,9 +403,11 @@ without deleting its named volume.
 
 - [`tax-app-fe/`](tax-app-fe/): Next.js 16, React 19, Tailwind CSS v4.
 - [`tax-app-be/`](tax-app-be/): NestJS API, cookie-based sessions, PostgreSQL via `pg`.
-- [`webmcp.ts`](tax-app-fe/app/_lib/webmcp.ts): shared site-tool contracts.
+- [`webmcp.ts`](tax-app-fe/app/_lib/webmcp.ts): shared site-tool contracts and the canonical tool names.
 - [`use-webmcp-tools.ts`](tax-app-fe/app/_lib/use-webmcp-tools.ts): page-scoped registration and cleanup.
-- [`filing-profile.ts`](tax-app-fe/app/_lib/filing-profile.ts): confirmed facts and PTKP mapping.
+- [`webmcp-tax-tools.ts`](tax-app-fe/app/_lib/webmcp-tax-tools.ts): the eight return-page tools, their schemas, and structured results.
+- [`filing-profile.ts`](tax-app-fe/app/_lib/filing-profile.ts): confirmed profile facts, PTKP mapping, and the context the assistant reads.
+- [`income-and-credits.ts`](tax-app-fe/app/_lib/income-and-credits.ts), [`assets.ts`](tax-app-fe/app/_lib/assets.ts), [`family.ts`](tax-app-fe/app/_lib/family.ts), [`debts.ts`](tax-app-fe/app/_lib/debts.ts), [`withholding-slips.ts`](tax-app-fe/app/_lib/withholding-slips.ts), [`return-answers.ts`](tax-app-fe/app/_lib/return-answers.ts): pure modules that validate one section's tool input, apply it to the draft, and summarise it without identifiers.
 - [`tax.ts`](tax-app-be/src/spt/tax.ts): server-side tax calculation; the frontend mirrors it for previews.
 - [`spt.ts`](tax-app-fe/app/_lib/spt.ts): form/table definitions, supported years, and UI labels.
 
@@ -392,7 +424,7 @@ The demo sign-in tool always uses the fixed demo account, not a newly registered
 | `/` | Landing page |
 | `/login`, `/register` | Sign-in and synthetic-account registration |
 | `/spt` | Taxpayer dashboard and draft creation |
-| `/spt/[id]` | Main form and L-1 supporting tables |
+| `/spt/[id]` | Main form and Lampiran I supporting tables |
 | `/admin` | Simulated reviewer panel |
 
 The simulated lifecycle is **Draft (`Konsep SPT`) → Waiting for payment
@@ -429,10 +461,11 @@ Browser calls use the frontend's `/api/be` prefix; these are the backend paths.
 | POST | `/spt/:id/approve` | Simulated approval |
 | POST | `/spt/:id/reject` | Simulated rejection with a reason |
 
-L-1 groups assets in A.1–A.6, their summary in A.7, debts in B, dependent family
-members in C, employment income in D, and withholding records in E. The A.7
-current-value total feeds main-form field 14.a; the D net-employment-income total
-feeds 1.a. Asset rows share an `assets[]` array and are grouped by `category`.
-The seed file is [`05_seed_spt.sql`](tax-app-be/db/init/05_seed_spt.sql).
+Lampiran I groups assets in A.1–A.6, their summary in A.7, debts in B, dependent
+family members in C, employment income in D, and withholding records in E. The
+A.7 current-value total feeds main-form field 14.a; the D net-employment-income
+total feeds 1.a; the E total feeds 10.a when slips are added through the tool.
+Asset rows share an `assets[]` array and are grouped by `category`. The seed
+file is [`05_seed_spt.sql`](tax-app-be/db/init/05_seed_spt.sql).
 
 </details>

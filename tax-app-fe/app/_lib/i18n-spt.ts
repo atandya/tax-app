@@ -61,6 +61,12 @@ interface SptDict {
   msgSubmitted: string;
   msgRejected: string;
   msgAgentPtkp: (code: string) => string;
+  msgAgentIncome: string;
+  msgAgentAssets: (count: number) => string;
+  msgAgentFamily: (count: number) => string;
+  msgAgentDebts: (count: number) => string;
+  msgAgentWithholding: (count: number) => string;
+  msgAgentAnswers: (count: number) => string;
 
   /* shared form vocabulary */
   yes: string;
@@ -113,6 +119,18 @@ const id: SptDict = {
   msgRejected: "SPT ditolak petugas. Perbaiki isian lalu kirim ulang.",
   msgAgentPtkp: (code) =>
     `Status PTKP ${code} tersimpan melalui bantuan asisten.`,
+  msgAgentIncome:
+    "Penghasilan dan kredit pajak tersimpan melalui bantuan asisten. Pajak dihitung ulang.",
+  msgAgentAssets: (count) =>
+    `${count} baris harta tersimpan melalui bantuan asisten.`,
+  msgAgentFamily: (count) =>
+    `${count} anggota keluarga tersimpan melalui bantuan asisten.`,
+  msgAgentDebts: (count) =>
+    `${count} baris utang tersimpan melalui bantuan asisten.`,
+  msgAgentWithholding: (count) =>
+    `${count} bukti potong tersimpan melalui bantuan asisten. Kredit pajak diperbarui.`,
+  msgAgentAnswers: (count) =>
+    `${count} jawaban pertanyaan tersimpan melalui bantuan asisten.`,
 
   yes: "Ya",
   no: "Tidak",
@@ -411,6 +429,18 @@ const en: SptDict = {
     "An officer rejected this return. Correct the entries and file it again.",
   msgAgentPtkp: (code) =>
     `Allowance status ${code} saved with assistant help.`,
+  msgAgentIncome:
+    "Income and tax credits saved with assistant help. Tax recalculated.",
+  msgAgentAssets: (count) =>
+    `${count} asset row${count === 1 ? "" : "s"} saved with assistant help.`,
+  msgAgentFamily: (count) =>
+    `${count} family member${count === 1 ? "" : "s"} saved with assistant help.`,
+  msgAgentDebts: (count) =>
+    `${count} debt row${count === 1 ? "" : "s"} saved with assistant help.`,
+  msgAgentWithholding: (count) =>
+    `${count} withholding slip${count === 1 ? "" : "s"} saved with assistant help. Tax credit updated.`,
+  msgAgentAnswers: (count) =>
+    `${count} question answer${count === 1 ? "" : "s"} saved with assistant help.`,
 
   yes: "Yes",
   no: "No",

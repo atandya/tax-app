@@ -75,7 +75,16 @@ describe("registerAll", () => {
 
 describe("journey tool names", () => {
   it("names the form and dashboard tools for nextStep hints", () => {
-    expect([...FORM_TOOL_NAMES]).toEqual(["get_tax_return_context", "update_taxpayer_profile"]);
+    expect([...FORM_TOOL_NAMES]).toEqual([
+      "get_tax_return_context",
+      "update_taxpayer_profile",
+      "update_income_and_credits",
+      "add_assets",
+      "add_family_members",
+      "add_debts",
+      "add_withholding_slips",
+      "update_return_answers",
+    ]);
     expect([...DASHBOARD_TOOL_NAMES]).toEqual(["list_tax_returns", "open_tax_return", "create_tax_return"]);
   });
 });

@@ -28,6 +28,12 @@ export interface ToolFailure<Code extends string = string> {
 export const FORM_TOOL_NAMES = [
   "get_tax_return_context",
   "update_taxpayer_profile",
+  "update_income_and_credits",
+  "add_assets",
+  "add_family_members",
+  "add_debts",
+  "add_withholding_slips",
+  "update_return_answers",
 ] as const;
 
 export const DASHBOARD_TOOL_NAMES = [

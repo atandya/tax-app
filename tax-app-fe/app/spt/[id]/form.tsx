@@ -173,7 +173,96 @@ export function SptForm({ me, initial }: { me: Me; initial: SptReturn }) {
     },
     [t],
   );
-  useTaxReturnTools({ spt, data, persistSptData, showIndukPtkpUpdate });
+  const showIncomeUpdate = useCallback(
+    () => {
+      setTab("induk");
+      setGuide("income");
+      setMsg({ kind: "ok", text: t.msgAgentIncome });
+      window.setTimeout(() => {
+        document
+          .getElementById("section-income")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    },
+    [t],
+  );
+  const showAssetsUpdate = useCallback(
+    (_saved: SptReturn, added: number) => {
+      setTab("l1");
+      setGuide("assets");
+      setMsg({ kind: "ok", text: t.msgAgentAssets(added) });
+      window.setTimeout(() => {
+        document
+          .getElementById("section-assets")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    },
+    [t],
+  );
+  const showFamilyUpdate = useCallback(
+    (_saved: SptReturn, added: number) => {
+      setTab("l1");
+      setGuide("family");
+      setMsg({ kind: "ok", text: t.msgAgentFamily(added) });
+      window.setTimeout(() => {
+        document
+          .getElementById("section-family")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    },
+    [t],
+  );
+  const showDebtsUpdate = useCallback(
+    (_saved: SptReturn, added: number) => {
+      setTab("l1");
+      setGuide("debts");
+      setMsg({ kind: "ok", text: t.msgAgentDebts(added) });
+      window.setTimeout(() => {
+        document
+          .getElementById("section-debts")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    },
+    [t],
+  );
+  const showWithholdingUpdate = useCallback(
+    (_saved: SptReturn, added: number) => {
+      setTab("l1");
+      setGuide("withholding");
+      setMsg({ kind: "ok", text: t.msgAgentWithholding(added) });
+      window.setTimeout(() => {
+        document
+          .getElementById("section-withholding")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    },
+    [t],
+  );
+  const showAnswersUpdate = useCallback(
+    (_saved: SptReturn, count: number, section: string) => {
+      setTab("induk");
+      setGuide(section as SectionKey);
+      setMsg({ kind: "ok", text: t.msgAgentAnswers(count) });
+      window.setTimeout(() => {
+        document
+          .getElementById(`section-${section}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    },
+    [t],
+  );
+  useTaxReturnTools({
+    spt,
+    data,
+    persistSptData,
+    showIndukPtkpUpdate,
+    showIncomeUpdate,
+    showAssetsUpdate,
+    showFamilyUpdate,
+    showDebtsUpdate,
+    showWithholdingUpdate,
+    showAnswersUpdate,
+  });
 
   async function save(): Promise<SptReturn | null> {
     setSaving(true);

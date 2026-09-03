@@ -104,7 +104,7 @@ async function setup(initial: SptReturn[], opts?: { createError?: Error; openErr
 
 const FORM_NEXT = {
   page: "tax_return",
-  tools: ["get_tax_return_context", "update_taxpayer_profile"],
+  tools: ["get_tax_return_context", "update_taxpayer_profile", "update_income_and_credits", "add_assets", "add_family_members", "add_debts", "add_withholding_slips", "update_return_answers"],
   hint: "Call get_tax_return_context first, then ask the user only for the missing facts.",
 };
 

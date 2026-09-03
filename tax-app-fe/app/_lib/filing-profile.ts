@@ -1,7 +1,16 @@
 // Confirmed taxpayer-profile facts and the deterministic PTKP mapping.
 // Pure, client-safe module: no React, no network, no DOM.
 
-import type { SptData, SptReturn, SptStatus } from "./spt";
+import { summarizeAssets, type AssetSummary } from "./assets";
+import { summarizeDebts, type DebtSummary } from "./debts";
+import { summarizeFamily, type FamilySummary } from "./family";
+import { summarizeReturnQuestions, type QuestionSummary } from "./return-answers";
+import {
+  summarizeWithholdingSlips,
+  type WithholdingSlipSummary,
+} from "./withholding-slips";
+import { summarizeIncome, type IncomeSummary } from "./income-and-credits";
+import type { SptComputation, SptData, SptReturn, SptStatus } from "./spt";
 
 export type MaritalStatus = "unmarried" | "married";
 export type DependentCount = 0 | 1 | 2 | 3;
@@ -32,11 +41,42 @@ export interface TaxReturnContext {
   profileConfirmed: boolean;
   missingFields: ProfileField[];
   suggestedQuestion: { id: string; en: string } | null;
+  /** Saved amounts in rupiah. Figures only; never names or identifiers. */
+  income: IncomeSummary;
+  /** The website's own tax computation for the saved data. */
+  computed: Pick<
+    SptComputation,
+    | "totalNet"
+    | "ptkpAmount"
+    | "taxableIncome"
+    | "pphOwed"
+    | "pphCredit"
+    | "balanceDue"
+    | "paymentStatus"
+  >;
+  /** Year-end asset rows: counts and totals only, never account details. */
+  assets: AssetSummary;
+  /** Dependant family rows: counts by relation only, never names or NIKs. */
+  family: FamilySummary;
+  /** Year-end debt rows: counts by type and total balance, never creditors. */
+  debts: DebtSummary;
+  /** Withholding certificates: counts by tax type and total, never withholders. */
+  withholdingSlips: WithholdingSlipSummary;
+  /** The standalone Yes/No questions: yes, no, or unanswered each. */
+  questions: QuestionSummary;
+  /** Sections still empty that a salaried filer usually needs. `family` is
+   *  listed only when the confirmed profile claims dependants. */
+  sectionsMissing: Array<"employmentIncome" | "withholdingCredit" | "assets" | "family">;
 }
 
 export const PROFILE_QUESTION = {
   id: "taxpayer_profile",
   en: "Were you married at the end of the tax year, and how many eligible dependants did you support (from zero to three)?",
+} as const;
+
+export const INCOME_QUESTION = {
+  id: "employment_income",
+  en: "Who was your employer in the tax year, what was your total gross salary for the year, what deductions were taken (such as pension or JHT/JP contributions), and how much income tax did the employer withhold?",
 } as const;
 
 const DEFAULT_PTKP = "TK/0";
@@ -102,6 +142,17 @@ export function buildTaxReturnContext(spt: SptReturn): TaxReturnContext {
     ? { maritalStatus: stored.maritalStatus, dependentCount: stored.dependentCount }
     : null;
   const confirmed = profile !== null;
+  const income = summarizeIncome(data);
+  const sectionsMissing: TaxReturnContext["sectionsMissing"] = [];
+  if (income.employmentNet <= 0) sectionsMissing.push("employmentIncome");
+  if (income.withholdingCredit <= 0) sectionsMissing.push("withholdingCredit");
+  const assets = summarizeAssets(data);
+  if (assets.count === 0) sectionsMissing.push("assets");
+  const family = summarizeFamily(data);
+  if (confirmed && profile.dependentCount > 0 && family.count === 0) {
+    sectionsMissing.push("family");
+  }
+  const c = spt.computed;
   return {
     returnId: spt.id,
     taxYear: spt.tax_year,
@@ -112,6 +163,26 @@ export function buildTaxReturnContext(spt: SptReturn): TaxReturnContext {
     currentPtkpCode: data.identity?.ptkp ?? DEFAULT_PTKP,
     profileConfirmed: confirmed,
     missingFields: confirmed ? [] : ["maritalStatus", "dependentCount"],
-    suggestedQuestion: confirmed ? null : { ...PROFILE_QUESTION },
+    suggestedQuestion: !confirmed
+      ? { ...PROFILE_QUESTION }
+      : sectionsMissing.length > 0
+        ? { ...INCOME_QUESTION }
+        : null,
+    income,
+    computed: {
+      totalNet: c?.totalNet ?? 0,
+      ptkpAmount: c?.ptkpAmount ?? 0,
+      taxableIncome: c?.taxableIncome ?? 0,
+      pphOwed: c?.pphOwed ?? 0,
+      pphCredit: c?.pphCredit ?? 0,
+      balanceDue: c?.balanceDue ?? 0,
+      paymentStatus: c?.paymentStatus ?? "Nihil",
+    },
+    assets,
+    family,
+    debts: summarizeDebts(data),
+    withholdingSlips: summarizeWithholdingSlips(data),
+    questions: summarizeReturnQuestions(data),
+    sectionsMissing,
   };
 }
