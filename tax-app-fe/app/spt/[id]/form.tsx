@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactElement } from "react";
+import { useCallback, useMemo, useState, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Me } from "../../_lib/session";
@@ -25,8 +25,11 @@ import {
   type TableCol,
   type YaTidak,
 } from "../../_lib/spt";
+import { filingProfileFromPtkp, isFilingProfile } from "../../_lib/filing-profile";
+import { putSptData } from "../../_lib/spt-api";
 import { ArrowRight, Chevron, InfoCircle } from "../../_components/icons";
 import { Button, LinkButton } from "../../_components/ui";
+import { useTaxReturnTools } from "./use-tax-return-tools";
 
 type Tab = "induk" | "l1";
 type Row = Record<string, string | number | undefined>;
@@ -96,21 +99,49 @@ export function SptForm({ me, initial }: { me: Me; initial: SptReturn }) {
   }
 
   // ---- persistence ----
+  // Persist an explicit next state (not the render closure's `data`) and
+  // adopt the backend's canonical response. Shared by the manual Save button
+  // and the WebMCP write tool so both see the same saved return.
+  const returnId = initial.id;
+  const persistSptData = useCallback(
+    async (nextData: SptData): Promise<SptReturn> => {
+      try {
+        const updated = await putSptData(returnId, nextData);
+        setSpt(updated);
+        setData(updated.data ?? {});
+        setDirty(false);
+        return updated;
+      } catch (e) {
+        // Keep the previous canonical state; surface the existing banner.
+        setMsg({ kind: "err", text: e instanceof Error ? e.message : "Kesalahan." });
+        throw e;
+      }
+    },
+    [returnId],
+  );
+
+  // WebMCP: after the assistant's update is persisted, show the Induk PTKP
+  // row that React re-rendered from the canonical response. No DOM writes.
+  const showIndukPtkpUpdate = useCallback((saved: SptReturn) => {
+    const code = saved.data?.identity?.ptkp ?? "-";
+    setTab("induk");
+    setMsg({
+      kind: "ok",
+      text: `Updated with ChatGPT assistance: PTKP ${code} saved. (Diperbarui dengan bantuan ChatGPT.)`,
+    });
+    window.setTimeout(() => {
+      document
+        .getElementById("spt-ptkp")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  }, []);
+  useTaxReturnTools({ spt, data, persistSptData, showIndukPtkpUpdate });
+
   async function save(): Promise<SptReturn | null> {
     setSaving(true);
     setMsg(null);
     try {
-      const res = await fetch(`/api/be/spt/${spt.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ data }),
-      });
-      if (!res.ok) throw new Error("Gagal menyimpan.");
-      const updated = (await res.json()) as SptReturn;
-      setSpt(updated);
-      setData(updated.data ?? {});
-      setDirty(false);
+      const updated = await persistSptData(data);
       setMsg({ kind: "ok", text: "Konsep tersimpan." });
       return updated;
     } catch (e) {
@@ -373,15 +404,32 @@ export function SptForm({ me, initial }: { me: Me; initial: SptReturn }) {
               <ReadMoney value={c.netAfterDeduction} />
             </NumRow>
             <NumRow n="5" label="Penghasilan Tidak Kena Pajak">
-              <div className="flex items-center gap-3">
+              <div id="spt-ptkp" className="flex flex-wrap items-center gap-3">
                 <Select
                   value={data.identity?.ptkp ?? "TK/0"}
                   options={PTKP_OPTIONS.map((p) => p.code)}
                   disabled={!editable}
-                  onChange={(v) => patch((d) => (d.identity = { ...d.identity, ptkp: v }))}
+                  onChange={(v) =>
+                    patch((d) => {
+                      // A manual PTKP choice confirms the matching facts, so
+                      // manual and assistant edits have the same semantics.
+                      d.identity = { ...d.identity, ptkp: v };
+                      const profile = filingProfileFromPtkp(v);
+                      if (profile) d.filingProfile = profile;
+                      else delete d.filingProfile;
+                    })
+                  }
                   className="w-28 shrink-0"
                 />
                 <ReadMoney value={c.ptkpAmount} />
+                {!isFilingProfile(data.filingProfile) && (
+                  <span
+                    className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700"
+                    title="Status perkawinan dan jumlah tanggungan belum dikonfirmasi"
+                  >
+                    Belum dikonfirmasi
+                  </span>
+                )}
               </div>
             </NumRow>
             <NumRow n="6" label="Penghasilan Kena Pajak (4-5)">

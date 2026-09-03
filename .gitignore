@@ -27,3 +27,6 @@ yarn-debug.log*
 # misc
 *.tsbuildinfo
 coverage/
+
+# private agent context, specs, and plans
+.agent/

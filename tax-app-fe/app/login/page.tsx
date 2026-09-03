@@ -16,9 +16,11 @@ import {
   UserTick,
 } from "../_components/icons";
 import { Button } from "../_components/ui";
+import { useAuthTools } from "./use-auth-tools";
 
 export default function LoginPage() {
   const router = useRouter();
+  useAuthTools(router);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");

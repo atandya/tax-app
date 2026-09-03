@@ -1,21 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Me } from "../_lib/session";
 import {
+  CURRENT_TAX_YEAR,
   FORM_TYPES,
   formatDate,
+  isSupportedTaxYear,
   rupiah,
   STATUS_META,
   STATUS_ORDER,
+  SUPPORTED_FORM_TYPE,
+  SUPPORTED_TAX_YEARS,
   type SptReturn,
   type SptStatus,
+  type SupportedTaxYear,
 } from "../_lib/spt";
+import { postSptDraft } from "../_lib/spt-api";
 import { ArrowRight, DocCheck } from "../_components/icons";
 import { Button, LinkButton } from "../_components/ui";
-
-const CURRENT_YEAR = 2025;
+import { useDashboardTools } from "./use-dashboard-tools";
 
 export function SptDashboard({
   me,
@@ -43,18 +48,21 @@ export function SptDashboard({
     [returns, tab],
   );
 
+  // WebMCP: the create tool shares the manual request path and the manual
+  // list state, then navigates through the agent helper in the hook.
+  const createDraftForAgent = useCallback(async (taxYear: SupportedTaxYear) => {
+    const created = await postSptDraft(taxYear, SUPPORTED_FORM_TYPE);
+    setReturns((prev) => [created, ...prev]);
+    return created;
+  }, []);
+  useDashboardTools({ router, returns, createDraftForAgent });
+
   async function createDraft(taxYear: number, formType: string) {
     setCreating(true);
     setError(null);
     try {
-      const res = await fetch("/api/be/spt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ taxYear, formType }),
-      });
-      if (!res.ok) throw new Error("Gagal membuat SPT.");
-      const created = (await res.json()) as SptReturn;
+      const created = await postSptDraft(taxYear, formType);
+      setReturns((prev) => [created, ...prev]);
       router.push(`/spt/${created.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Terjadi kesalahan.");
@@ -249,8 +257,8 @@ function CreateModal({
   onClose: () => void;
   onCreate: (taxYear: number, formType: string) => void;
 }) {
-  const [year, setYear] = useState(CURRENT_YEAR);
-  const [formType, setFormType] = useState("1770 S");
+  const [year, setYear] = useState<SupportedTaxYear>(CURRENT_TAX_YEAR);
+  const [formType, setFormType] = useState(SUPPORTED_FORM_TYPE);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm">
@@ -266,10 +274,13 @@ function CreateModal({
           Tahun Pajak
           <select
             value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              if (isSupportedTaxYear(next)) setYear(next);
+            }}
             className="control mt-2 border border-djp-blue/20 bg-white font-semibold text-[var(--text-main)]"
           >
-            {[CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].map((y) => (
+            {SUPPORTED_TAX_YEARS.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>

@@ -32,6 +32,9 @@ cd tax-app-fe
 npm install                   # first time only
 npm run dev
 ```
+To enable the `sign_in_demo` WebMCP tool, set `NEXT_PUBLIC_DEMO_LOGIN_ENABLED=true`
+in `tax-app-fe/.env.local` (or prefix `npm run build`/`npm run dev` with it) and
+`DEMO_LOGIN_ENABLED=true` in the backend `.env`.
 
 Open http://localhost:3000.
 
@@ -44,6 +47,30 @@ so the session cookie stays first-party — no CORS needed in dev.
 |--------------|---------------------|--------------|----------|
 | Wajib Pajak  | `0912345678901234`  | `Wajib2025!` | `/spt`   |
 | Petugas (admin) | `admin`          | `Admin2025!` | `/admin` |
+
+## WebMCP site tools
+
+Pages register tools with `document.modelContext.registerTool()` for agents
+such as ChatGPT's in-app browser. Nothing here is a real filing; all data is
+synthetic.
+
+| Page | Tools |
+|------|-------|
+| `/login` | `sign_in_demo` — opens a session for the synthetic demo taxpayer (demo deployments only, no credentials) |
+| `/spt` | `list_tax_returns`, `open_tax_return`, `create_tax_return` (1770 S only; refuses a year that already has a return) |
+| `/spt/[id]` | `get_tax_return_context`, `update_taxpayer_profile` |
+
+No tool declares, submits, deletes, approves, or rejects a return; those stay
+manual. Browsers without WebMCP use the site as before; the only shared
+change is that creating a second return for the same tax year is now refused
+for everyone.
+
+Demo sign-in is opt-in on both sides and off by default: backend
+`DEMO_LOGIN_ENABLED=true` (optionally `DEMO_LOGIN_USERNAME`) and frontend build
+`NEXT_PUBLIC_DEMO_LOGIN_ENABLED=true`. `NEXT_PUBLIC_WEBMCP_NAVIGATION=hard`
+makes agent-triggered navigation a full page load. The `NEXT_PUBLIC_*` values
+are inlined at build time, so set them before `next build`. See each package's
+`.env.example`.
 
 ## Registering
 
@@ -87,12 +114,13 @@ it to Konsep and clears the rejection reason so it can be resubmitted.
 | Method | Path                 | Notes                                        |
 |--------|----------------------|----------------------------------------------|
 | `POST` | `/auth/login`        | `{ username, password, captcha }` → sets `coretax_session` httpOnly cookie |
+| `POST` | `/auth/demo-login`   | Demo only (`DEMO_LOGIN_ENABLED=true`): opens the synthetic taxpayer's session, no body; 404 when disabled |
 | `POST` | `/auth/register`     | `{ username, fullName, email, npwp?, password, captcha }` → creates a `wajib_pajak` and opens a session |
 | `GET`  | `/auth/me`           | Current user (incl. `role`) from session cookie |
 | `POST` | `/auth/logout`       | Clears session                               |
 | `GET`  | `/health`            | Liveness                                     |
 | `GET`  | `/spt`               | List the current taxpayer's returns          |
-| `POST` | `/spt`               | Create a draft `{ taxYear, formType }`       |
+| `POST` | `/spt`               | Create a draft `{ taxYear, formType }`; 409 if the year already has a return |
 | `GET`  | `/spt/:id`           | One return (owner, or any admin)             |
 | `PUT`  | `/spt/:id`           | Update draft data + recompute (DRAFT/REJECTED only) |
 | `POST` | `/spt/:id/submit`    | Konsep → Menunggu Pembayaran (needs declaration) |

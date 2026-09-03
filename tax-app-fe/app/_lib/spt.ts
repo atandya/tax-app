@@ -1,4 +1,5 @@
 // Shared SPT types + presentation helpers (client-safe: no server imports).
+import type { FilingProfile } from "./filing-profile";
 
 export type SptStatus = "DRAFT" | "WAITING_PAYMENT" | "REPORTED" | "REJECTED";
 
@@ -106,6 +107,10 @@ export interface WithholdingSlip {
 export type YaTidak = "ya" | "tidak";
 
 export interface SptData {
+  /** Marital status and eligible dependant count confirmed by the taxpayer
+   *  (manually or through the assistant). Absent means `identity.ptkp` is a
+   *  provisional default/seed value, not a confirmed fact. */
+  filingProfile?: FilingProfile;
   identity?: { ptkp?: string; signer?: "wp" | "kuasa" };
   header?: {
     status?: string;
@@ -203,6 +208,20 @@ export const PTKP_OPTIONS: { code: string; label: string; amount: number }[] = [
 ];
 
 export const FORM_TYPES = ["1770 SS", "1770 S", "1770"];
+
+/** The only form type the WebMCP journey supports. The manual dialog still
+ *  lists every FORM_TYPES entry. */
+export const SUPPORTED_FORM_TYPE = "1770 S";
+
+/** Tax years offered by the create dialog and accepted by create_tax_return. */
+// Review each filing season.
+export const SUPPORTED_TAX_YEARS = [2025, 2024, 2023] as const;
+export const CURRENT_TAX_YEAR = SUPPORTED_TAX_YEARS[0];
+export type SupportedTaxYear = (typeof SUPPORTED_TAX_YEARS)[number];
+
+export function isSupportedTaxYear(value: unknown): value is SupportedTaxYear {
+  return (SUPPORTED_TAX_YEARS as readonly unknown[]).includes(value);
+}
 
 export function rupiah(n: number | null | undefined): string {
   const v = Number(n ?? 0);
