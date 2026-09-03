@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -41,6 +42,7 @@ function row(overrides: Partial<SptRow> = {}): SptRow {
 class StatefulSptDatabase {
   current: SptRow | undefined;
   updateCount = 0;
+  insertCount = 0;
 
   constructor(initial?: SptRow) {
     this.current = initial;
@@ -49,6 +51,18 @@ class StatefulSptDatabase {
   async query<T>(text: string, params: unknown[] = []): Promise<T[]> {
     if (text.includes('SELECT') && text.includes('FROM spt_returns')) {
       return (this.current ? [{ ...this.current }] : []) as T[];
+    }
+
+    if (text.includes('INSERT INTO spt_returns')) {
+      this.insertCount += 1;
+      this.current = row({
+        user_id: params[0] as string,
+        tax_year: params[1] as number,
+        form_type: params[2] as string,
+        status: 'DRAFT',
+        data: JSON.parse(params[3] as string) as SptData,
+      });
+      return [{ ...this.current }] as T[];
     }
 
     if (text.includes('UPDATE spt_returns')) {
@@ -151,5 +165,31 @@ describe('SptService.updateDraft', () => {
       service.updateDraft('missing', 'taxpayer-1', editableData),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(db.updateCount).toBe(0);
+  });
+});
+
+describe('SptService.createDraft', () => {
+  it.each<SptStatus>(['DRAFT', 'WAITING_PAYMENT', 'REPORTED', 'REJECTED'])(
+    'refuses a second return for the same taxpayer and tax year when the existing one is %s',
+    async (status) => {
+      const { db, service } = serviceFor(
+        row({ user_id: 'taxpayer-1', tax_year: 2025, status }),
+      );
+
+      await expect(
+        service.createDraft('taxpayer-1', 2025, '1770 S'),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(db.insertCount).toBe(0);
+    },
+  );
+
+  it('inserts a fresh draft when the taxpayer has no return for that year', async () => {
+    const { db, service } = serviceFor();
+
+    const result = await service.createDraft('taxpayer-1', 2025, '1770 S');
+
+    expect(db.insertCount).toBe(1);
+    expect(result.status).toBe('DRAFT');
+    expect(result.data.identity).toEqual({ ptkp: 'TK/0', signer: 'wp' });
   });
 });

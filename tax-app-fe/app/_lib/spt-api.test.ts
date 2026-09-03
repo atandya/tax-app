@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { putSptData, SPT_SAVE_FAILED_MESSAGE, SptSaveError } from "./spt-api";
+import {
+  postSptDraft,
+  putSptData,
+  SPT_CREATE_FAILED_MESSAGE,
+  SPT_SAVE_FAILED_MESSAGE,
+  SptSaveError,
+} from "./spt-api";
 import type { SptData, SptReturn } from "./spt";
 
 const RETURN_ID = "00000000-0000-4000-8000-000000000001";
@@ -119,5 +125,54 @@ describe("putSptData", () => {
     const err = await putSptData(RETURN_ID, {}, impl).catch((e: unknown) => e);
     expect((err as SptSaveError).status).toBe(401);
     expect((err as SptSaveError).message).toBe("Sesi tidak valid.");
+  });
+});
+
+describe("postSptDraft", () => {
+  it("POSTs taxYear and formType through the proxy and returns the canonical return", async () => {
+    const created = { ...canonical({}), tax_year: 2023 };
+    const { impl, calls } = fakeFetch(() => jsonResponse(created, 201));
+    const result = await postSptDraft(2023, "1770 S", impl);
+    expect(result).toEqual(created);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].input).toBe("/api/be/spt");
+    expect(calls[0].init?.method).toBe("POST");
+    expect(calls[0].init?.headers).toEqual({ "Content-Type": "application/json" });
+    expect(calls[0].init?.credentials).toBe("same-origin");
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ taxYear: 2023, formType: "1770 S" });
+  });
+
+  it("rejects with SptSaveError carrying the backend message on failure", async () => {
+    const { impl } = fakeFetch(() => jsonResponse({ message: "SPT tahun 2023 sudah ada." }, 409));
+    await expect(postSptDraft(2023, "1770 S", impl)).rejects.toMatchObject({
+      name: "SptSaveError",
+      status: 409,
+      message: "SPT tahun 2023 sudah ada.",
+    });
+  });
+
+  it("falls back to the stable message for non-JSON error bodies", async () => {
+    const { impl } = fakeFetch(() => new Response("<html>502</html>", { status: 502 }));
+    const err = await postSptDraft(2023, "1770 S", impl).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SptSaveError);
+    expect((err as SptSaveError).message).toBe(SPT_CREATE_FAILED_MESSAGE);
+    expect((err as SptSaveError).status).toBe(502);
+  });
+
+  it("rejects a 2xx response whose body is not JSON", async () => {
+    const { impl } = fakeFetch(() => new Response("not json", { status: 200 }));
+    const err = await postSptDraft(2023, "1770 S", impl).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SptSaveError);
+    expect((err as SptSaveError).message).toBe(SPT_CREATE_FAILED_MESSAGE);
+    expect((err as SptSaveError).status).toBe(200);
+  });
+
+  it("rejects with status 0 on a network failure", async () => {
+    const { impl } = fakeFetch(() => {
+      throw new TypeError("offline");
+    });
+    const err = await postSptDraft(2023, "1770 S", impl).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SptSaveError);
+    expect((err as SptSaveError).status).toBe(0);
   });
 });

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -80,8 +81,17 @@ export class SptService {
     return this.withComputation(row);
   }
 
-  /** Create a fresh draft, prefilling identity from the user record. */
+  /** Create a fresh draft, prefilling identity from the user record.
+   *  Refuses a second return for the same taxpayer + tax year, regardless
+   *  of the existing return's status. */
   async createDraft(userId: string, taxYear: number, formType: string) {
+    const existing = await this.db.query<{ id: string }>(
+      `SELECT id FROM spt_returns WHERE user_id = $1 AND tax_year = $2 LIMIT 1`,
+      [userId, taxYear],
+    );
+    if (existing[0]) {
+      throw new ConflictException(`SPT tahun ${taxYear} sudah ada.`);
+    }
     const data: SptData = {
       identity: { ptkp: 'TK/0', signer: 'wp' },
       header: {

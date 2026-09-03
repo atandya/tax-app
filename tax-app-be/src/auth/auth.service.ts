@@ -38,6 +38,17 @@ export class AuthService {
     return user;
   }
 
+  /** Look a user up by username without touching the password hash. Used by
+   *  the flag-gated demo login, which never compares a password. */
+  async findByUsername(username: string): Promise<PublicUser | null> {
+    const rows = await this.db.query<PublicUser>(
+      `SELECT id, username, full_name, npwp, email, role
+         FROM users WHERE username = $1 LIMIT 1`,
+      [username],
+    );
+    return rows[0] ?? null;
+  }
+
   /**
    * Self-service sign-up. Always creates a `wajib_pajak` — the admin role is
    * only ever granted by the seed, never by this endpoint.

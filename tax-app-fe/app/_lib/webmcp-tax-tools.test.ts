@@ -5,6 +5,8 @@ import {
 } from "./filing-profile";
 import type { SptData, SptReturn } from "./spt";
 import {
+  FORM_DONE_NEXT_STEP,
+  FORM_STAY_NEXT_STEP,
   GET_TAX_RETURN_CONTEXT_INPUT_SCHEMA,
   GET_TAX_RETURN_CONTEXT_TOOL,
   parseProfileInput,
@@ -247,12 +249,14 @@ describe("get_tax_return_context", () => {
 
   it("reads the latest return on every call, not a captured one", async () => {
     const fakes = await registerWithFakes(fixtureReturn(fixtureData()));
-    const before = (await fakes.read()) as { context: { profileConfirmed: boolean } };
+    const before = (await fakes.read()) as { context: { profileConfirmed: boolean }; nextStep: unknown };
     expect(before.context.profileConfirmed).toBe(false);
+    expect(before.nextStep).toEqual(FORM_STAY_NEXT_STEP);
     await fakes.deps.saveProfile({ maritalStatus: "married", dependentCount: 2 });
-    const after = (await fakes.read()) as { context: { profileConfirmed: boolean; currentPtkpCode: string } };
+    const after = (await fakes.read()) as { context: { profileConfirmed: boolean; currentPtkpCode: string }; nextStep: unknown };
     expect(after.context.profileConfirmed).toBe(true);
     expect(after.context.currentPtkpCode).toBe("K/2");
+    expect(after.nextStep).toEqual(FORM_DONE_NEXT_STEP);
   });
 });
 
@@ -279,6 +283,7 @@ describe("update_taxpayer_profile", () => {
         suggestedQuestion: null,
         status: "DRAFT",
       }),
+      nextStep: FORM_DONE_NEXT_STEP,
     });
     expect(fakes.saveCalls).toEqual([profile]);
     expect(fakes.getCurrent().data.identity?.ptkp).toBe(code);

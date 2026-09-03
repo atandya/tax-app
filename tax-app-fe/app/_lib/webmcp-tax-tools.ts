@@ -1,4 +1,3 @@
-/// <reference types="webmcp-types" />
 // WebMCP tool contracts for the taxpayer-profile vertical slice.
 // Framework-free: the SPT detail page supplies live state and persistence
 // through `TaxToolDependencies`; this module owns names, descriptions,
@@ -18,16 +17,34 @@ import {
   type TaxReturnContext,
 } from "./filing-profile";
 import type { SptReturn } from "./spt";
+import {
+  failure,
+  FORM_TOOL_NAMES,
+  registerAll,
+  type ModelContext,
+  type NextStep,
+  type ToolFailure,
+  type WebMcpTool,
+} from "./webmcp";
 
-export type TaxTool = WebMCP.ModelContextTool;
-export type TaxModelContext = NonNullable<Document["modelContext"]>;
+export type TaxTool = WebMcpTool;
+export type TaxModelContext = ModelContext;
 
-export const GET_TAX_RETURN_CONTEXT_TOOL = "get_tax_return_context";
-export const UPDATE_TAXPAYER_PROFILE_TOOL = "update_taxpayer_profile";
-export const TAX_TOOL_NAMES = [
-  GET_TAX_RETURN_CONTEXT_TOOL,
-  UPDATE_TAXPAYER_PROFILE_TOOL,
-] as const;
+export const GET_TAX_RETURN_CONTEXT_TOOL = FORM_TOOL_NAMES[0];
+export const UPDATE_TAXPAYER_PROFILE_TOOL = FORM_TOOL_NAMES[1];
+export const TAX_TOOL_NAMES = FORM_TOOL_NAMES;
+
+export const FORM_STAY_NEXT_STEP = {
+  page: "tax_return",
+  tools: FORM_TOOL_NAMES,
+  hint: "Ask the user only for the missing facts, then save them with update_taxpayer_profile.",
+} as const satisfies NextStep;
+
+export const FORM_DONE_NEXT_STEP = {
+  page: "tax_return",
+  tools: FORM_TOOL_NAMES,
+  hint: "The taxpayer profile is saved. Ask the user to review the remaining sections and submit the return themselves; no tool can declare or submit it.",
+} as const satisfies NextStep;
 
 export const GET_TAX_RETURN_CONTEXT_DESCRIPTION =
   "Read the active Indonesian individual tax return's filing status and the minimum missing taxpayer-profile facts. Use this before asking the user for information. This tool does not submit or modify the return.";
@@ -67,14 +84,12 @@ export type TaxToolErrorCode =
   | "SAVE_FAILED"
   | "INVALID_PROFILE";
 
-export interface TaxToolFailure {
-  ok: false;
-  error: { code: TaxToolErrorCode; message: string };
-}
+export type TaxToolFailure = ToolFailure<TaxToolErrorCode>;
 
 export interface GetTaxReturnContextResult {
   ok: true;
   context: TaxReturnContext;
+  nextStep: NextStep;
 }
 
 export interface UpdateTaxpayerProfileResult {
@@ -87,6 +102,7 @@ export interface UpdateTaxpayerProfileResult {
   };
   message: string;
   context: TaxReturnContext;
+  nextStep: NextStep;
 }
 
 export interface TaxToolDependencies {
@@ -105,10 +121,6 @@ const INVALID_PROFILE_MESSAGE =
 
 const SAVE_FAILED_MESSAGE =
   "The website could not save the taxpayer profile. The previously saved values were kept. Ask the user to try again.";
-
-function failure(code: TaxToolErrorCode, message: string): TaxToolFailure {
-  return { ok: false, error: { code, message } };
-}
 
 /** Application-side re-validation of tool input. Mirrors the JSON schema:
  *  exactly the two required keys, enum marital status, integer 0–3. */
@@ -133,7 +145,12 @@ export function parseProfileInput(input: unknown): FilingProfile | null {
 export async function executeGetTaxReturnContext(
   deps: TaxToolDependencies,
 ): Promise<GetTaxReturnContextResult> {
-  return { ok: true, context: buildTaxReturnContext(deps.getCurrentReturn()) };
+  const context = buildTaxReturnContext(deps.getCurrentReturn());
+  return {
+    ok: true,
+    context,
+    nextStep: context.profileConfirmed ? FORM_DONE_NEXT_STEP : FORM_STAY_NEXT_STEP,
+  };
 }
 
 export async function executeUpdateTaxpayerProfile(
@@ -180,6 +197,7 @@ export async function executeUpdateTaxpayerProfile(
     },
     message: `Saved the confirmed taxpayer profile and updated PTKP to ${ptkpCode}.`,
     context: buildTaxReturnContext(saved),
+    nextStep: FORM_DONE_NEXT_STEP,
   };
 }
 
@@ -210,8 +228,5 @@ export async function registerTaxReturnTools(
   dependencies: TaxToolDependencies,
   signal: AbortSignal,
 ): Promise<void> {
-  if (signal.aborted) return;
-  for (const tool of buildTaxReturnTools(dependencies)) {
-    await modelContext.registerTool(tool, { signal });
-  }
+  await registerAll(modelContext, buildTaxReturnTools(dependencies), signal);
 }

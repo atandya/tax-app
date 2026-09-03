@@ -58,3 +58,46 @@ export async function putSptData(
     throw new SptSaveError(SPT_SAVE_FAILED_MESSAGE, res.status);
   }
 }
+
+export const SPT_CREATE_FAILED_MESSAGE = "Gagal membuat SPT.";
+
+/**
+ * POST a new draft and resolve with the backend's canonical return.
+ * Rejects with `SptSaveError` for any non-2xx status, network failure, or
+ * unparseable success body. Shared by the manual dialog and the
+ * create_tax_return WebMCP tool.
+ */
+export async function postSptDraft(
+  taxYear: number,
+  formType: string,
+  fetchImpl?: typeof fetch,
+): Promise<SptReturn> {
+  const doFetch: typeof fetch = fetchImpl ?? ((input, init) => fetch(input, init));
+
+  let res: Response;
+  try {
+    res = await doFetch("/api/be/spt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ taxYear, formType }),
+    });
+  } catch {
+    throw new SptSaveError(SPT_CREATE_FAILED_MESSAGE, 0);
+  }
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { message?: unknown } | null;
+    const message =
+      typeof body?.message === "string" && body.message.trim()
+        ? body.message
+        : SPT_CREATE_FAILED_MESSAGE;
+    throw new SptSaveError(message, res.status);
+  }
+
+  try {
+    return (await res.json()) as SptReturn;
+  } catch {
+    throw new SptSaveError(SPT_CREATE_FAILED_MESSAGE, res.status);
+  }
+}

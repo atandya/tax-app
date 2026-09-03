@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  NotFoundException,
   Post,
   Req,
   Res,
@@ -17,12 +18,17 @@ import { RegisterDto } from './dto/register.dto';
 @Controller('auth')
 export class AuthController {
   private readonly cookieName: string;
+  private readonly demoLoginEnabled: boolean;
+  private readonly demoLoginUsername: string;
 
   constructor(
     private readonly auth: AuthService,
     config: ConfigService,
   ) {
     this.cookieName = config.get<string>('SESSION_COOKIE') ?? 'coretax_session';
+    this.demoLoginEnabled = config.get<string>('DEMO_LOGIN_ENABLED') === 'true';
+    this.demoLoginUsername =
+      config.get<string>('DEMO_LOGIN_USERNAME')?.trim() || '0912345678901234';
   }
 
   /** Open a session for `user` and set the httpOnly session cookie. */
@@ -79,6 +85,24 @@ export class AuthController {
       email: dto.email.trim().toLowerCase(),
       npwp: dto.npwp,
     });
+    return this.startSession(user, res);
+  }
+
+  /**
+   * Hackathon-only sign-in for the synthetic demo taxpayer, used by the
+   * login page's `sign_in_demo` WebMCP tool. Exists only when
+   * DEMO_LOGIN_ENABLED=true; never reads or compares a password.
+   */
+  @Post('demo-login')
+  @HttpCode(200)
+  async demoLogin(@Res({ passthrough: true }) res: Response) {
+    if (!this.demoLoginEnabled) {
+      throw new NotFoundException('Cannot POST /auth/demo-login');
+    }
+    const user = await this.auth.findByUsername(this.demoLoginUsername);
+    if (!user || user.role !== 'wajib_pajak') {
+      throw new NotFoundException('Akun demo tidak tersedia.');
+    }
     return this.startSession(user, res);
   }
 
